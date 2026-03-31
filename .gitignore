@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+backend/dist/
+frontend/.next/
+admin/.next/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes
+postgres_data/
+redis_data/
+meilisearch_data/
+minio_data/
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
