@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "bash(npm run *)",
+      "bash(npx *)",
+      "bash(cd backend && *)",
+      "bash(cd frontend && *)",
+      "bash(cd admin && *)",
+      "bash(docker-compose *)",
+      "bash(cat *)",
+      "bash(ls *)",
+      "bash(mkdir *)",
+      "bash(cp *)",
+      "bash(mv *)",
+      "bash(find *)",
+      "bash(grep *)",
+      "bash(wc *)",
+      "bash(head *)",
+      "bash(tail *)"
+    ],
+    "deny": [
+      "bash(rm -rf /)",
+      "bash(sudo *)",
+      "bash(chmod 777 *)"
+    ]
+  }
+}
