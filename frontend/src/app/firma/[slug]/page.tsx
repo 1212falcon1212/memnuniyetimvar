@@ -1,137 +1,121 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+import { CompanyHeader } from "@/components/company/CompanyHeader";
+import { ReviewCard } from "@/components/review/ReviewCard";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
-async function getCompany(slug: string) {
+async function getCompanyData(slug: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
   try {
-    const res = await fetch(`${API}/companies/${slug}`, { next: { revalidate: 60 } });
-    const json = await res.json();
-    return json.data || null;
-  } catch { return null; }
-}
+    const [companyRes, reviewsRes] = await Promise.all([
+      fetch(`${apiUrl}/companies/${slug}`, { next: { revalidate: 60 } }),
+      fetch(`${apiUrl}/companies/${slug}/reviews?limit=10`, { next: { revalidate: 60 } }),
+    ]);
 
-async function getReviews(slug: string) {
-  try {
-    const res = await fetch(`${API}/companies/${slug}/reviews?limit=10`, { next: { revalidate: 60 } });
-    const json = await res.json();
-    return json.data || [];
-  } catch { return []; }
+    const company = companyRes.ok ? (await companyRes.json()).data : null;
+    const reviewsData = reviewsRes.ok ? await reviewsRes.json() : { data: [], meta: {} };
+
+    return { company, reviews: reviewsData.data || [], meta: reviewsData.meta };
+  } catch {
+    return { company: null, reviews: [], meta: {} };
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const company = await getCompany(slug);
+  const { company } = await getCompanyData(slug);
+  const name = company?.name || slug;
   return {
-    title: company?.name || slug,
-    description: company?.description || `${slug} firması hakkında memnuniyet yorumları.`,
+    title: `${name} — Memnuniyet Yorumları`,
+    description: `${name} firması hakkında memnuniyet yorumları ve değerlendirmeler. MemnuniyetEndeks: ${company?.memnuniyetScore || 0}`,
   };
 }
 
 export default async function FirmaDetailPage({ params }: Props) {
   const { slug } = await params;
-  const [company, reviews] = await Promise.all([getCompany(slug), getReviews(slug)]);
+  const { company, reviews } = await getCompanyData(slug);
 
   if (!company) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Firma bulunamadı</h1>
-        <Link href="/firma" className="mt-4 inline-block text-primary hover:underline">Firmalara dön</Link>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <h1 className="text-2xl font-bold text-gray-900">Firma Bulunamadı</h1>
+        <p className="mt-2 text-gray-500">Aradığınız firma mevcut değil veya kaldırılmış olabilir.</p>
+        <Link href="/firma" className="mt-4 inline-block text-primary hover:underline">
+          Tüm Firmalara Dön
+        </Link>
       </div>
     );
   }
 
-  const scorePercent = Math.min(Number(company.memnuniyetScore) || 0, 100);
-
   return (
     <div>
-      {/* Company Header */}
-      <div className="bg-card border-b border-border">
+      <div className="bg-white border-b border-gray-200">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-          <nav className="text-sm text-muted mb-4">
+          <nav className="text-sm text-gray-500 mb-4">
             <Link href="/" className="hover:text-primary">Ana Sayfa</Link>
             <span className="mx-2">&gt;</span>
             <Link href="/firma" className="hover:text-primary">Firmalar</Link>
             <span className="mx-2">&gt;</span>
-            <span className="text-foreground">{company.name}</span>
+            <span className="text-gray-900">{company.name}</span>
           </nav>
 
-          <div className="flex flex-col sm:flex-row sm:items-start gap-6">
-            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-primary-light text-3xl font-bold text-primary">
-              {company.name.charAt(0)}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl sm:text-3xl font-bold font-[family-name:var(--font-display)] text-foreground">
-                  {company.name}
-                </h1>
-                {company.isVerified && (
-                  <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-medium text-primary">✓ Doğrulanmış</span>
-                )}
-              </div>
-              {company.description && <p className="mt-2 text-muted">{company.description}</p>}
-              <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted">
-                <span className="font-semibold text-accent text-lg">★ {Number(company.avgRating).toFixed(1)} / 5</span>
-                <span>{company.reviewCount} değerlendirme</span>
-                {company.city && <span>{company.city}{company.district ? `, ${company.district}` : ''}</span>}
-                {company.website && <span>{company.website}</span>}
-              </div>
-
-              {/* MemnuniyetEndeks */}
-              <div className="mt-4 max-w-sm rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">MemnuniyetEndeks</span>
-                  <span className="text-lg font-bold text-primary">{Math.round(scorePercent)}/100</span>
-                </div>
-                <div className="mt-2 h-2.5 w-full rounded-full bg-gray-100">
-                  <div className="h-2.5 rounded-full bg-primary transition-all" style={{ width: `${scorePercent}%` }} />
-                </div>
-                <div className="mt-2 text-xs text-muted">Yanıt Oranı: %{Math.round(Number(company.responseRate) || 0)}</div>
-              </div>
-
-              <div className="mt-4">
-                <Link href="/memnuniyet/yaz" className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark transition-colors">
-                  Memnuniyetini Paylaş
-                </Link>
-              </div>
-            </div>
-          </div>
+          <CompanyHeader
+            name={company.name}
+            logoUrl={company.logoUrl}
+            coverUrl={company.coverUrl}
+            description={company.description}
+            website={company.website}
+            phone={company.phone}
+            city={company.city}
+            district={company.district}
+            isVerified={company.isVerified}
+            avgRating={Number(company.avgRating)}
+            reviewCount={company.reviewCount}
+            responseRate={Number(company.responseRate)}
+            memnuniyetScore={Number(company.memnuniyetScore)}
+          />
         </div>
       </div>
 
-      {/* Reviews */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-xl font-bold font-[family-name:var(--font-display)] text-foreground">
-          Memnuniyet Yorumları ({company.reviewCount})
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Memnuniyet Yorumları ({company.reviewCount})
+          </h2>
+          <Link
+            href={`/memnuniyet/yaz?firma=${slug}`}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800"
+          >
+            Yorum Yaz
+          </Link>
+        </div>
 
-        <div className="mt-6 space-y-4">
-          {reviews.length > 0 ? reviews.map((r: any) => (
-            <div key={r.id} className="rounded-xl border border-border bg-card p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-accent text-lg">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</div>
-                  <Link href={`/memnuniyet/${r.slug}`} className="mt-1 block text-base font-semibold text-foreground hover:text-primary">
-                    {r.title}
-                  </Link>
-                </div>
-                <span className="text-xs text-muted">{r.viewCount?.toLocaleString('tr-TR')} görüntülenme</span>
-              </div>
-              <p className="mt-2 text-sm text-muted line-clamp-2">{r.content}</p>
-              <div className="mt-3 flex items-center gap-2 text-sm text-muted">
-                <span className="font-medium text-foreground">{r.user?.full_name || 'Kullanıcı'}</span>
-                <span>·</span>
-                <span>👍 {r.helpfulCount || 0} kişi faydalı buldu</span>
-              </div>
+        <div className="space-y-4">
+          {reviews.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-400">
+              Henüz yorum bulunmuyor. İlk yorumu siz yazın!
             </div>
-          )) : (
-            <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-muted">
-              Henüz yorum yazılmamış. İlk yorumu siz yazın!
-            </div>
+          ) : (
+            reviews.map((review: Record<string, unknown>) => (
+              <ReviewCard
+                key={review.id as string}
+                slug={review.slug as string}
+                title={review.title as string}
+                content={review.content as string}
+                rating={review.rating as number}
+                helpfulCount={review.helpfulCount as number}
+                createdAt={review.createdAt as string}
+                userName={(review.user as Record<string, string>)?.fullName || "Anonim"}
+                userAvatarUrl={(review.user as Record<string, string>)?.avatarUrl || null}
+                companyName={company.name}
+                companySlug={slug}
+                hasResponse={!!(review.companyResponses as unknown[])?.length}
+                tags={(review.tags as { name: string; slug: string }[]) || []}
+              />
+            ))
           )}
         </div>
       </div>

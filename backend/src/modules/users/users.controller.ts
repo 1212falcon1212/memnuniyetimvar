@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,6 +8,7 @@ import { CurrentUser } from '../../common/decorators';
 
 @ApiTags('Users')
 @Controller('users')
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(
     @InjectRepository(User)
@@ -21,38 +16,23 @@ export class UsersController {
   ) {}
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Profil bilgileri' })
-  async getMe(@CurrentUser() user: User) {
+  @ApiOperation({ summary: 'Mevcut kullanici bilgileri' })
+  async getMe(@CurrentUser('id') userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) return null;
+
     return {
       id: user.id,
-      full_name: user.full_name,
+      fullName: user.full_name,
       email: user.email,
       phone: user.phone,
-      avatar_url: user.avatar_url,
-      is_phone_verified: user.is_phone_verified,
-      is_email_verified: user.is_email_verified,
+      avatarUrl: user.avatar_url,
+      isPhoneVerified: user.is_phone_verified,
+      isEmailVerified: user.is_email_verified,
       role: user.role,
-      review_count: user.review_count,
-      helpful_count: user.helpful_count,
-    };
-  }
-
-  @Patch('me')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Profil güncelle' })
-  async updateMe(
-    @CurrentUser() user: User,
-    @Body() body: { full_name?: string },
-  ) {
-    if (body.full_name) user.full_name = body.full_name;
-    await this.userRepository.save(user);
-    return {
-      id: user.id,
-      full_name: user.full_name,
-      email: user.email,
+      reviewCount: user.review_count,
+      helpfulCount: user.helpful_count,
     };
   }
 }

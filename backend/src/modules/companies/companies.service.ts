@@ -5,7 +5,7 @@ import { Company, CompanyStatus } from './entities/company.entity';
 import { CompanyCategory } from './entities/company-category.entity';
 import { CompanyClaim } from './entities/company-claim.entity';
 import { Category } from '../categories/entities/category.entity';
-import { Review } from '../reviews/entities/review.entity';
+import { Review, ReviewStatus } from '../reviews/entities/review.entity';
 import {
   CreateCompanyDto,
   CompanyFilterDto,
@@ -105,16 +105,19 @@ export class CompaniesService {
   ) {
     const company = await this.findBySlug(slug);
 
-    const [reviews, total] = await this.reviewRepository.findAndCount({
-      where: { companyId: company.id, status: 'published' as any },
-      relations: ['user'],
+    const [data, total] = await this.reviewRepository.findAndCount({
+      where: {
+        companyId: company.id,
+        status: ReviewStatus.PUBLISHED,
+      },
+      relations: ['user', 'images', 'tags', 'companyResponses'],
       order: { createdAt: 'DESC' },
       skip: pagination.skip,
       take: pagination.limit,
     });
 
     return {
-      data: reviews,
+      data,
       meta: {
         page: pagination.page,
         limit: pagination.limit,
@@ -202,6 +205,7 @@ export class CompaniesService {
   async findByCategory(categorySlug: string, pagination: PaginationDto) {
     const category = await this.categoryRepository.findOne({
       where: { slug: categorySlug, isActive: true },
+      relations: ['children'],
     });
 
     if (!category) {
@@ -211,16 +215,21 @@ export class CompaniesService {
       });
     }
 
-    const [data, total] = await this.companyRepository.findAndCount({
-      where: {
-        categoryId: category.id,
-        status: CompanyStatus.ACTIVE,
-      },
-      relations: ['category'],
-      order: { memnuniyetScore: 'DESC' },
-      skip: pagination.skip,
-      take: pagination.limit,
-    });
+    // Ana kategori + alt kategorilerinin ID'lerini topla
+    const categoryIds = [category.id];
+    if (category.children?.length) {
+      categoryIds.push(...category.children.map((c) => c.id));
+    }
+
+    const qb = this.companyRepository
+      .createQueryBuilder('company')
+      .leftJoinAndSelect('company.category', 'category')
+      .where('company.status = :status', { status: CompanyStatus.ACTIVE })
+      .andWhere('company.categoryId IN (:...categoryIds)', { categoryIds })
+      .orderBy('company.memnuniyetScore', 'DESC');
+
+    const total = await qb.getCount();
+    const data = await qb.skip(pagination.skip).take(pagination.limit).getMany();
 
     return {
       data,

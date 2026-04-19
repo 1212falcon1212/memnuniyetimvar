@@ -16,6 +16,10 @@ import { CompaniesModule } from './modules/companies/companies.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MailModule } from './modules/mail/mail.module';
+import { SmsModule } from './modules/sms/sms.module';
+import { SearchModule } from './modules/search/search.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -50,6 +54,10 @@ import { AdminModule } from './modules/admin/admin.module';
     ]),
 
     // Feature modules
+    MailModule,
+    SmsModule,
+    SearchModule,
+    UploadModule,
     UsersModule,
     AuthModule,
     CategoriesModule,

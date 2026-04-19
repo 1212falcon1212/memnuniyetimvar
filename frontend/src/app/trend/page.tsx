@@ -1,61 +1,69 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CompanyCard } from "@/components/company/CompanyCard";
 
 export const metadata: Metadata = {
   title: "Trend Firmalar",
   description: "Son 7 günde en çok memnuniyet yorumu alan firmalar.",
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
-
-async function getTrending() {
+async function getTrendingCompanies() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
   try {
-    const res = await fetch(`${API}/companies/trending?limit=20`, { next: { revalidate: 60 } });
+    const res = await fetch(`${apiUrl}/companies/trending?limit=20`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return [];
     const json = await res.json();
     return json.data || [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 export default async function TrendPage() {
-  const companies = await getTrending();
+  const companies = await getTrendingCompanies();
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <nav className="text-sm text-muted mb-6">
+      <nav className="text-sm text-gray-500 mb-6">
         <Link href="/" className="hover:text-primary">Ana Sayfa</Link>
         <span className="mx-2">&gt;</span>
-        <span className="text-foreground">Trend Firmalar</span>
+        <span className="text-gray-900">Trend Firmalar</span>
       </nav>
 
-      <h1 className="text-2xl font-bold font-[family-name:var(--font-display)] text-foreground">
+      <h1 className="text-2xl font-bold font-[family-name:var(--font-display)] text-gray-900">
         Trend Firmalar
       </h1>
-      <p className="mt-2 text-muted">En çok yorum alan firmalar</p>
+      <p className="mt-2 text-gray-600">
+        Son 7 günde en çok memnuniyet yorumu alan firmalar.
+      </p>
 
-      <div className="mt-8 space-y-3">
-        {companies.map((c: any, i: number) => (
-          <Link
-            key={c.id}
-            href={`/firma/${c.slug}`}
-            className="flex items-center gap-5 rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-md transition-all"
-          >
-            <span className="text-xl font-bold text-muted w-8 text-center">{i + 1}.</span>
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary-light text-lg font-bold text-primary">
-              {c.name.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-foreground">{c.name}</span>
-                {c.isVerified && <span className="text-primary text-xs">✓</span>}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {companies.length === 0 ? (
+          <div className="col-span-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-400">
+            Henüz trend firma bulunmuyor
+          </div>
+        ) : (
+          companies.map((company: Record<string, unknown>, index: number) => (
+            <div key={company.id as string} className="relative">
+              <div className="absolute -left-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-white shadow">
+                {index + 1}
               </div>
-              <span className="text-sm text-muted">{c.category?.name || ''} · {c.city}</span>
+              <CompanyCard
+                name={company.name as string}
+                slug={company.slug as string}
+                logoUrl={(company.logoUrl as string) || null}
+                city={(company.city as string) || null}
+                isVerified={company.isVerified as boolean}
+                avgRating={Number(company.avgRating)}
+                reviewCount={company.reviewCount as number}
+                memnuniyetScore={Number(company.memnuniyetScore)}
+                categoryName={null}
+              />
             </div>
-            <div className="text-right">
-              <span className="text-lg font-bold text-accent">★ {Number(c.avgRating).toFixed(1)}</span>
-              <p className="text-xs text-muted">{c.reviewCount} yorum</p>
-            </div>
-          </Link>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

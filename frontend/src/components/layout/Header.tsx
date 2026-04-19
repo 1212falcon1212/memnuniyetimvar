@@ -87,28 +87,6 @@ function AnnouncementBar() {
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ fullName: string } | null>(null);
-
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (token) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/users/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => r.ok ? r.json() : null)
-        .then((json) => {
-          if (json?.data) setUser({ fullName: json.data.full_name || json.data.fullName });
-        })
-        .catch(() => {});
-    }
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    setUser(null);
-    window.location.href = "/";
-  };
 
   return (
     <>
@@ -147,26 +125,12 @@ export function Header() {
 
             {/* Right: Auth + CTA */}
             <div className="hidden md:flex items-center gap-4">
-              {user ? (
-                <>
-                  <Link href="/profil" className="text-sm font-medium text-foreground/70 hover:text-[#166534] whitespace-nowrap">
-                    {user.fullName}
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="text-sm font-medium text-foreground/50 hover:text-red-600 whitespace-nowrap"
-                  >
-                    Çıkış
-                  </button>
-                </>
-              ) : (
-                <Link
-                  href="/giris"
-                  className="text-sm font-medium text-foreground/70 transition-colors hover:text-[#166534] whitespace-nowrap"
-                >
-                  Giriş Yap / Üye Ol
-                </Link>
-              )}
+              <Link
+                href="/giris"
+                className="text-sm font-medium text-foreground/70 transition-colors hover:text-[#166534] whitespace-nowrap"
+              >
+                Giriş Yap / Üye Ol
+              </Link>
               <Link
                 href="/memnuniyet/yaz"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#166534] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#166534]-dark hover:shadow-md active:scale-[0.98] whitespace-nowrap"

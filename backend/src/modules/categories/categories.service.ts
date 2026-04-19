@@ -69,7 +69,7 @@ export class CategoriesService {
    */
   async findPopular(): Promise<Category[]> {
     return this.categoryRepo.find({
-      where: { isActive: true },
+      where: { isActive: true, parentId: IsNull() },
       order: { reviewCount: 'DESC' },
       take: 10,
     });

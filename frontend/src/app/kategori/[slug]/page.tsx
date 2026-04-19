@@ -1,103 +1,100 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+import { CompanyCard } from "@/components/company/CompanyCard";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
-async function getCategory(slug: string) {
+async function getCategoryWithCompanies(slug: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
   try {
-    const res = await fetch(`${API}/categories/${slug}`, { next: { revalidate: 60 } });
-    const json = await res.json();
-    return json.data || null;
-  } catch { return null; }
-}
+    const [catRes, companiesRes] = await Promise.all([
+      fetch(`${apiUrl}/categories/${slug}`, { next: { revalidate: 60 } }),
+      fetch(`${apiUrl}/companies/by-category/${slug}?limit=20`, { next: { revalidate: 60 } }),
+    ]);
 
-async function getCompanies(slug: string) {
-  try {
-    const res = await fetch(`${API}/companies/by-category/${slug}?limit=20`, { next: { revalidate: 60 } });
-    const json = await res.json();
-    return json.data || [];
-  } catch { return []; }
+    const category = catRes.ok ? (await catRes.json()).data : null;
+    const companiesData = companiesRes.ok ? await companiesRes.json() : { data: [] };
+
+    return { category, companies: companiesData.data || [] };
+  } catch {
+    return { category: null, companies: [] };
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const category = await getCategory(slug);
+  const { category } = await getCategoryWithCompanies(slug);
+  const name = category?.name || slug.replace(/-/g, " ");
   return {
-    title: category?.name || slug,
-    description: `${category?.name || slug} kategorisindeki en iyi firmaları keşfedin.`,
+    title: `${name} Firmaları`,
+    description: `${name} kategorisindeki en iyi firmaları keşfedin.`,
   };
 }
 
 export default async function KategoriDetailPage({ params }: Props) {
   const { slug } = await params;
-  const [category, companies] = await Promise.all([getCategory(slug), getCompanies(slug)]);
+  const { category, companies } = await getCategoryWithCompanies(slug);
+  const categoryName = category?.name || slug.replace(/-/g, " ");
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <nav className="text-sm text-muted mb-6">
+      <nav className="text-sm text-gray-500 mb-6">
         <Link href="/" className="hover:text-primary">Ana Sayfa</Link>
         <span className="mx-2">&gt;</span>
         <Link href="/kategori" className="hover:text-primary">Kategoriler</Link>
         <span className="mx-2">&gt;</span>
-        <span className="text-foreground">{category?.name || slug}</span>
+        <span className="text-gray-900">{categoryName}</span>
       </nav>
 
-      <h1 className="text-2xl font-bold font-[family-name:var(--font-display)] text-foreground">
-        {category?.name || slug.replace(/-/g, " ")}
-      </h1>
-      {category?.description && <p className="mt-2 text-muted">{category.description}</p>}
-      <p className="mt-1 text-sm text-muted">{companies.length} firma listeleniyor</p>
-
-      {/* Alt kategoriler */}
-      {category?.children?.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {category.children.map((child: any) => (
-            <Link
-              key={child.slug}
-              href={`/kategori/${child.slug}`}
-              className="rounded-full bg-primary-light px-4 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white transition-colors"
-            >
-              {child.name}
-            </Link>
-          ))}
+      {category?.bannerUrl && (
+        <div className="relative h-48 w-full rounded-xl overflow-hidden mb-6">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${category.bannerUrl})` }}
+          />
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <h1 className="text-3xl font-bold text-white font-[family-name:var(--font-display)]">
+              {categoryName}
+            </h1>
+          </div>
         </div>
+      )}
+
+      {!category?.bannerUrl && (
+        <h1 className="text-2xl font-bold font-[family-name:var(--font-display)] text-gray-900 capitalize">
+          {categoryName}
+        </h1>
+      )}
+
+      {category?.description && (
+        <p className="mt-2 text-gray-600">{category.description}</p>
       )}
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {companies.map((c: any) => (
-          <Link
-            key={c.id}
-            href={`/firma/${c.slug}`}
-            className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-md transition-all"
-          >
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-primary-light text-xl font-bold text-primary">
-              {c.name.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-semibold text-foreground truncate">{c.name}</h3>
-                {c.isVerified && <span className="text-primary text-xs">✓</span>}
-              </div>
-              {c.city && <p className="text-sm text-muted mt-0.5">{c.city}</p>}
-              <div className="mt-2 flex items-center gap-3 text-sm">
-                <span className="font-semibold text-accent">★ {Number(c.avgRating).toFixed(1)}</span>
-                <span className="text-muted">{c.reviewCount} yorum</span>
-                <span className="text-muted">Endeks: {Math.round(Number(c.memnuniyetScore))}</span>
-              </div>
-            </div>
-          </Link>
-        ))}
+        {companies.length === 0 ? (
+          <div className="col-span-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-400">
+            Bu kategoride henüz firma bulunmuyor
+          </div>
+        ) : (
+          companies.map((company: Record<string, unknown>) => (
+            <CompanyCard
+              key={company.id as string}
+              name={company.name as string}
+              slug={company.slug as string}
+              logoUrl={(company.logoUrl as string) || null}
+              city={(company.city as string) || null}
+              isVerified={company.isVerified as boolean}
+              avgRating={Number(company.avgRating)}
+              reviewCount={company.reviewCount as number}
+              memnuniyetScore={Number(company.memnuniyetScore)}
+              categoryName={categoryName}
+            />
+          ))
+        )}
       </div>
-
-      {companies.length === 0 && (
-        <div className="mt-8 rounded-xl border border-dashed border-border bg-card p-8 text-center text-muted">
-          Bu kategoride henüz firma bulunmuyor.
-        </div>
-      )}
     </div>
   );
 }

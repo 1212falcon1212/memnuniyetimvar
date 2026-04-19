@@ -4,20 +4,26 @@ interface CompanyHeaderProps {
   name: string;
   logoUrl: string | null;
   coverUrl: string | null;
+  description: string | null;
+  phone: string | null;
   city: string | null;
+  district: string | null;
   website: string | null;
   isVerified: boolean;
   avgRating: number;
   reviewCount: number;
   responseRate: number;
   memnuniyetScore: number;
-  categoryName: string | null;
-  categorySlug: string | null;
+  categoryName?: string | null;
+  categorySlug?: string | null;
 }
 
 export function CompanyHeader({
   name,
+  description,
+  phone,
   city,
+  district,
   website,
   isVerified,
   avgRating,
@@ -97,6 +103,17 @@ export function CompanyHeader({
                 <span>Yanıt Oranı: %{Math.round(responseRate)}</span>
               </div>
             </div>
+
+            {description && (
+              <p className="mt-3 text-sm text-gray-600 max-w-2xl">{description}</p>
+            )}
+
+            {(phone || district) && (
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                {phone && <span>📞 {phone}</span>}
+                {district && city && <span>📍 {district}, {city}</span>}
+              </div>
+            )}
 
             <div className="mt-4 flex gap-3">
               <Link
