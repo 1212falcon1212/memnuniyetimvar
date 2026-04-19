@@ -26,13 +26,15 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.message || "Giris basarisiz. Bilgilerinizi kontrol edin.");
+        const errData = data?.data || data;
+        throw new Error(errData?.error?.message || errData?.message || "Giris basarisiz. Bilgilerinizi kontrol edin.");
       }
 
       const data = await res.json();
-      localStorage.setItem("admin_token", data.token);
-      if (data.user?.name) {
-        localStorage.setItem("admin_name", data.user.name);
+      const payload = data.data || data;
+      localStorage.setItem("adminToken", payload.accessToken);
+      if (payload.admin?.fullName) {
+        localStorage.setItem("adminName", payload.admin.fullName);
       }
       router.replace("/dashboard");
     } catch (err) {

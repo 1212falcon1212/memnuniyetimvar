@@ -6,14 +6,14 @@ import { api } from "@/lib/api";
 
 interface UserProfile {
   id: string;
-  fullName: string;
+  full_name: string;
   email: string;
   phone: string;
-  avatarUrl: string | null;
-  isPhoneVerified: boolean;
-  isEmailVerified: boolean;
-  reviewCount: number;
-  helpfulCount: number;
+  avatar_url: string | null;
+  is_phone_verified: boolean;
+  is_email_verified: boolean;
+  review_count: number;
+  helpful_count: number;
 }
 
 export default function ProfilPage() {
@@ -46,21 +46,21 @@ export default function ProfilPage() {
       <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-2xl font-bold text-primary">
-            {user.fullName.charAt(0).toUpperCase()}
+            {user.full_name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h2 className="text-xl font-semibold">{user.fullName}</h2>
+            <h2 className="text-xl font-semibold">{user.full_name}</h2>
             <p className="text-sm text-gray-500">{user.email}</p>
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4">
           <div className="rounded-lg bg-gray-50 p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{user.reviewCount}</p>
+            <p className="text-2xl font-bold text-primary">{user.review_count}</p>
             <p className="text-sm text-gray-500">Yorum</p>
           </div>
           <div className="rounded-lg bg-gray-50 p-4 text-center">
-            <p className="text-2xl font-bold text-accent">{user.helpfulCount}</p>
+            <p className="text-2xl font-bold text-accent">{user.helpful_count}</p>
             <p className="text-sm text-gray-500">Faydali Oy</p>
           </div>
         </div>
@@ -70,7 +70,7 @@ export default function ProfilPage() {
             <span className="text-sm text-gray-500">Telefon</span>
             <div className="flex items-center gap-2">
               <span className="text-sm">{user.phone}</span>
-              {user.isPhoneVerified ? (
+              {user.is_phone_verified ? (
                 <span className="text-xs text-green-600">Dogrulandi</span>
               ) : (
                 <span className="text-xs text-yellow-600">Dogrulanmadi</span>
@@ -81,7 +81,7 @@ export default function ProfilPage() {
             <span className="text-sm text-gray-500">E-posta</span>
             <div className="flex items-center gap-2">
               <span className="text-sm">{user.email}</span>
-              {user.isEmailVerified ? (
+              {user.is_email_verified ? (
                 <span className="text-xs text-green-600">Dogrulandi</span>
               ) : (
                 <span className="text-xs text-yellow-600">Dogrulanmadi</span>

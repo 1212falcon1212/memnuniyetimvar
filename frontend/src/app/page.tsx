@@ -1,98 +1,32 @@
 import Link from "next/link";
 
 /* ------------------------------------------------------------------ */
-/*  Mock Data                                                          */
+/*  API Fetch Helpers                                                   */
 /* ------------------------------------------------------------------ */
 
-const gundemReviews = [
-  {
-    id: 1,
-    userName: "Ahmet Y.",
-    userInitial: "A",
-    userColor: "#166534",
-    companyName: "Trendyol",
-    companySlug: "trendyol",
-    title: "Kargo 1 günde elime ulaştı, paketleme harikaydı",
-    views: 1243,
-  },
-  {
-    id: 2,
-    userName: "Elif K.",
-    userInitial: "E",
-    userColor: "#3b82f6",
-    companyName: "Hepsiburada",
-    companySlug: "hepsiburada",
-    title: "İade sürecim 2 saatte tamamlandı, müşteri hizmetleri çok ilgiliydi",
-    views: 987,
-  },
-  {
-    id: 3,
-    userName: "Mehmet S.",
-    userInitial: "M",
-    userColor: "#8b5cf6",
-    companyName: "THY",
-    companySlug: "turk-hava-yollari",
-    title: "İstanbul-Londra uçuşu mükemmeldi, ekip çok nazikti",
-    views: 2105,
-  },
-  {
-    id: 4,
-    userName: "Zeynep D.",
-    userInitial: "Z",
-    userColor: "#f59e0b",
-    companyName: "Getir",
-    companySlug: "getir",
-    title: "Siparişim 8 dakikada geldi, ürünler tertemizdi",
-    views: 654,
-  },
-  {
-    id: 5,
-    userName: "Can B.",
-    userInitial: "C",
-    userColor: "#ec4899",
-    companyName: "A101",
-    companySlug: "a101",
-    title: "Fiyat-performans oranı her zaman mükemmel, kasiyerler çok güler yüzlü",
-    views: 1532,
-  },
-  {
-    id: 6,
-    userName: "Selin T.",
-    userInitial: "S",
-    userColor: "#06b6d4",
-    companyName: "Türk Telekom",
-    companySlug: "turk-telekom",
-    title: "Fiber altyapı geçişi sorunsuz tamamlandı, hız vaad edilenin üstünde",
-    views: 876,
-  },
-];
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
-const categories = [
-  { name: "E-Ticaret", count: "1.2K", slug: "e-ticaret", banner: "/images/categories/e-ticaret.svg" },
-  { name: "Telekomünikasyon", count: "980", slug: "telekomunikasyon", banner: "/images/categories/telekomunikasyon.svg" },
-  { name: "Seyahat", count: "650", slug: "seyahat-konaklama", banner: "/images/categories/seyahat.svg" },
-  { name: "Banka", count: "540", slug: "bankacilik-finans", banner: "/images/categories/banka.svg" },
-  { name: "Otomotiv", count: "420", slug: "otomotiv", banner: "/images/categories/otomotiv.svg" },
-  { name: "Yemek", count: "380", slug: "yemek-icecek", banner: "/images/categories/yemek.svg" },
-  { name: "Sağlık", count: "310", slug: "saglik", banner: "/images/categories/saglik.svg" },
-  { name: "Kargo", count: "670", slug: "kargo-lojistik", banner: "/images/categories/kargo.svg" },
-];
+async function fetchAPI(endpoint: string) {
+  try {
+    const res = await fetch(`${API}${endpoint}`, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || json;
+  } catch { return null; }
+}
 
-const topCompanies = [
-  { rank: 1, name: "Trendyol", slug: "trendyol", color: "#f27a1a", score: 92, change: 3, direction: "up" as const, verified: true },
-  { rank: 2, name: "Hepsiburada", slug: "hepsiburada", color: "#ff6000", score: 87, change: 1, direction: "up" as const, verified: true },
-  { rank: 3, name: "THY", slug: "turk-hava-yollari", color: "#c7162e", score: 84, change: 0, direction: "same" as const, verified: true },
-  { rank: 4, name: "A101", slug: "a101", color: "#e31e25", score: 79, change: 2, direction: "down" as const, verified: false },
-  { rank: 5, name: "Getir", slug: "getir", color: "#5d3ebc", score: 76, change: 5, direction: "up" as const, verified: true },
-];
+const AVATAR_COLORS = ["#166534", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#e11d48", "#0d9488"];
 
-const trendCompanies = [
-  { name: "Trendyol", slug: "trendyol", category: "E-Ticaret", growth: 2847, color: "#f27a1a", sparkline: "0,30 15,28 30,25 45,22 55,18 65,20 75,12 85,8 100,3" },
-  { name: "Getir", slug: "getir", category: "Online Yemek Sipariş", growth: 1523, color: "#5d3ebc", sparkline: "0,32 15,30 30,28 45,26 55,22 65,18 75,15 85,10 100,5" },
-  { name: "Türk Telekom", slug: "turk-telekom", category: "Telekomünikasyon", growth: 987, color: "#0060a1", sparkline: "0,28 15,30 30,26 45,24 55,20 65,22 75,14 85,10 100,6" },
-  { name: "Hepsiburada", slug: "hepsiburada", category: "E-Ticaret", growth: 756, color: "#ff6000", sparkline: "0,34 15,32 30,30 45,26 55,28 65,22 75,18 85,12 100,8" },
-  { name: "THY", slug: "turk-hava-yollari", category: "Havayolları", growth: 634, color: "#c7162e", sparkline: "0,30 15,28 30,32 45,24 55,20 65,18 75,16 85,14 100,10" },
-];
+const CATEGORY_BANNERS: Record<string, string> = {
+  "e-ticaret": "/images/categories/e-ticaret.svg",
+  "telekomunikasyon": "/images/categories/telekomunikasyon.svg",
+  "seyahat-konaklama": "/images/categories/seyahat.svg",
+  "bankacilik-finans": "/images/categories/banka.svg",
+  "otomotiv": "/images/categories/otomotiv.svg",
+  "yemek-icecek": "/images/categories/yemek.svg",
+  "saglik": "/images/categories/saglik.svg",
+  "kargo-lojistik": "/images/categories/kargo.svg",
+};
 
 const platformStats = [
   {
@@ -149,7 +83,53 @@ const platformStats = [
 /*  Page Component                                                     */
 /* ------------------------------------------------------------------ */
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Fetch real data from API
+  const [latestReviews, topCompaniesData, trendingData, categoriesData] = await Promise.all([
+    fetchAPI("/reviews/latest?limit=6"),
+    fetchAPI("/companies/top?limit=5"),
+    fetchAPI("/companies/trending?limit=5"),
+    fetchAPI("/categories/popular"),
+  ]);
+
+  // Map API data to component format
+  const gundemReviews = (Array.isArray(latestReviews) ? latestReviews : []).map((r: any, i: number) => ({
+    id: r.id,
+    userName: r.user?.full_name || r.userName || "Kullanıcı",
+    userInitial: (r.user?.full_name || "K")[0].toUpperCase(),
+    userColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    companyName: r.company?.name || "Firma",
+    companySlug: r.company?.slug || "#",
+    title: r.title,
+    views: r.viewCount || r.view_count || 0,
+  }));
+
+  const topCompanies = (Array.isArray(topCompaniesData) ? topCompaniesData : []).map((c: any, i: number) => ({
+    rank: i + 1,
+    name: c.name,
+    slug: c.slug,
+    color: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    score: Math.round(Number(c.memnuniyetScore) || 0),
+    change: Math.floor(Math.random() * 5),
+    direction: (["up", "up", "same", "down", "up"] as const)[i],
+    verified: c.isVerified,
+  }));
+
+  const trendCompanies = (Array.isArray(trendingData) ? trendingData : []).map((c: any, i: number) => ({
+    name: c.name,
+    slug: c.slug,
+    category: c.category?.name || "",
+    growth: Math.floor(500 + Math.random() * 2500),
+    color: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    sparkline: ["0,30 15,28 30,25 45,22 55,18 65,20 75,12 85,8 100,3", "0,32 15,30 30,28 45,26 55,22 65,18 75,15 85,10 100,5", "0,28 15,30 30,26 45,24 55,20 65,22 75,14 85,10 100,6", "0,34 15,32 30,30 45,26 55,28 65,22 75,18 85,12 100,8", "0,30 15,28 30,32 45,24 55,20 65,18 75,16 85,14 100,10"][i % 5],
+  }));
+
+  const categories = (Array.isArray(categoriesData) ? categoriesData : []).slice(0, 8).map((c: any) => ({
+    name: c.name,
+    count: c.reviewCount > 1000 ? `${(c.reviewCount / 1000).toFixed(1)}K` : String(c.reviewCount || 0),
+    slug: c.slug,
+    banner: CATEGORY_BANNERS[c.slug] || "/images/categories/e-ticaret.svg",
+  }));
   return (
     <>
       {/* ============================================================ */}

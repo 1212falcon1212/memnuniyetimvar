@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ReviewForm } from "@/components/review/ReviewForm";
 import { useAuthStore } from "@/store/authStore";
@@ -11,16 +11,20 @@ const API_BASE =
 
 export default function YorumYazPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated, isLoading: authLoading, initAuth } = useAuthStore();
+
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(data: {
-    companySearch: string;
+    companyId: string;
     title: string;
     content: string;
     rating: number;
-    tags: string;
+    tagIds: number[];
     images: File[];
   }) {
     setError(null);
@@ -38,20 +42,13 @@ export default function YorumYazPage() {
         return;
       }
 
-      const tagList = data.tags
-        ? data.tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : [];
-
-      const body = {
-        companyName: data.companySearch,
+      const body: Record<string, unknown> = {
+        companyId: data.companyId,
         title: data.title,
         content: data.content,
         rating: data.rating,
-        tags: tagList,
       };
+      if (data.tagIds.length > 0) body.tagIds = data.tagIds;
 
       const response = await fetch(`${API_BASE}/reviews`, {
         method: "POST",

@@ -5,6 +5,7 @@ import { Company, CompanyStatus } from './entities/company.entity';
 import { CompanyCategory } from './entities/company-category.entity';
 import { CompanyClaim } from './entities/company-claim.entity';
 import { Category } from '../categories/entities/category.entity';
+import { Review } from '../reviews/entities/review.entity';
 import {
   CreateCompanyDto,
   CompanyFilterDto,
@@ -24,6 +25,8 @@ export class CompaniesService {
     private readonly companyClaimRepository: Repository<CompanyClaim>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(Review)
+    private readonly reviewRepository: Repository<Review>,
   ) {}
 
   async findAll(filter: CompanyFilterDto) {
@@ -100,16 +103,23 @@ export class CompaniesService {
     slug: string,
     pagination: PaginationDto,
   ) {
-    // Reviews module entegrasyonu henuz yapilmadi
-    await this.findBySlug(slug);
+    const company = await this.findBySlug(slug);
+
+    const [reviews, total] = await this.reviewRepository.findAndCount({
+      where: { companyId: company.id, status: 'published' as any },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+      skip: pagination.skip,
+      take: pagination.limit,
+    });
 
     return {
-      data: [],
+      data: reviews,
       meta: {
         page: pagination.page,
         limit: pagination.limit,
-        total: 0,
-        totalPages: 0,
+        total,
+        totalPages: Math.ceil(total / pagination.limit),
       },
     };
   }

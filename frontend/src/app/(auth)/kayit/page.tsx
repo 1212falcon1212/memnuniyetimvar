@@ -23,12 +23,17 @@ export default function KayitPage() {
     setError("");
 
     try {
+      // Telefon numarasını +90 formatına çevir
+      let phone = form.phone.replace(/\s/g, "");
+      if (phone.startsWith("0")) phone = "+90" + phone.slice(1);
+      if (!phone.startsWith("+90")) phone = "+90" + phone;
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/auth/register`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, phone }),
         }
       );
       const data = await res.json();
