@@ -1,38 +1,57 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators';
+import { PaginationDto } from '../../common/dto';
+import { UpdateAvatarDto, UpdateProfileDto } from './dto';
+import { UsersService } from './users.service';
 
 @ApiTags('Users')
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mevcut kullanici bilgileri' })
   async getMe(@CurrentUser('id') userId: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) return null;
+    return this.usersService.getMe(userId);
+  }
 
-    return {
-      id: user.id,
-      fullName: user.full_name,
-      email: user.email,
-      phone: user.phone,
-      avatarUrl: user.avatar_url,
-      isPhoneVerified: user.is_phone_verified,
-      isEmailVerified: user.is_email_verified,
-      role: user.role,
-      reviewCount: user.review_count,
-      helpfulCount: user.helpful_count,
-    };
+  @Patch('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Profil bilgilerini guncelle' })
+  updateMe(@CurrentUser('id') userId: string, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateMe(userId, dto);
+  }
+
+  @Patch('me/avatar')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Avatar URL guncelle' })
+  updateAvatar(@CurrentUser('id') userId: string, @Body() dto: UpdateAvatarDto) {
+    return this.usersService.updateAvatar(userId, dto);
+  }
+
+  @Get('me/reviews')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kullanicinin yorumlari' })
+  getMyReviews(@CurrentUser('id') userId: string, @Query() pagination: PaginationDto) {
+    return this.usersService.getMyReviews(userId, pagination);
+  }
+
+  @Get('me/notifications')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kullanicinin bildirimleri' })
+  getMyNotifications(@CurrentUser('id') userId: string, @Query() pagination: PaginationDto) {
+    return this.usersService.getMyNotifications(userId, pagination);
+  }
+
+  @Patch('me/notifications/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Bildirimi okundu isaretle' })
+  @ApiParam({ name: 'id', description: 'Bildirim UUID' })
+  markNotificationRead(@CurrentUser('id') userId: string, @Param('id') id: string) {
+    return this.usersService.markNotificationRead(userId, id);
   }
 }

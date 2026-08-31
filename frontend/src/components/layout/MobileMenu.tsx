@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAuthStore } from "@/store/authStore";
 
 interface MobileMenuProps {
   open: boolean;
@@ -9,7 +10,14 @@ interface MobileMenuProps {
 }
 
 export function MobileMenu({ open, onClose, navigation }: MobileMenuProps) {
+  const { user, isAuthenticated, isLoading, logout } = useAuthStore();
+
   if (!open) return null;
+
+  function handleLogout() {
+    logout();
+    onClose();
+  }
 
   return (
     <div className="fixed inset-0 z-50 md:hidden">
@@ -43,20 +51,43 @@ export function MobileMenu({ open, onClose, navigation }: MobileMenuProps) {
 
           <hr className="my-4" />
 
-          <Link
-            href="/giris"
-            onClick={onClose}
-            className="block rounded-lg px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Giriş Yap
-          </Link>
-          <Link
-            href="/kayit"
-            onClick={onClose}
-            className="block rounded-lg bg-primary px-3 py-2 text-center text-base font-semibold text-white hover:bg-primary-dark"
-          >
-            Kayıt Ol
-          </Link>
+          {isLoading ? (
+            <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+          ) : isAuthenticated ? (
+            <>
+              <Link
+                href="/profil"
+                onClick={onClose}
+                className="block rounded-lg px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {user?.fullName || "Profilim"}
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="block w-full rounded-lg px-3 py-2 text-left text-base font-medium text-red-600 hover:bg-red-50"
+              >
+                Çıkış Yap
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/giris"
+                onClick={onClose}
+                className="block rounded-lg px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Giriş Yap
+              </Link>
+              <Link
+                href="/kayit"
+                onClick={onClose}
+                className="block rounded-lg bg-primary px-3 py-2 text-center text-base font-semibold text-white hover:bg-primary-dark"
+              >
+                Kayıt Ol
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </div>

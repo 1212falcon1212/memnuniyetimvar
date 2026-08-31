@@ -114,6 +114,13 @@ export class Company {
   @Column({ name: 'category_id', type: 'int', nullable: true })
   categoryId: number | null;
 
+  // ── Sponsorluk (Faz 8) — aktif reklam talebi ile güncellenir ──
+  @Column({ name: 'is_sponsored', type: 'boolean', default: false })
+  isSponsored: boolean;
+
+  @Column({ name: 'sponsored_until', type: 'timestamp', nullable: true })
+  sponsoredUntil: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 

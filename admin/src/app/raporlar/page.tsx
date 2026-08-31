@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import api from "@/lib/api";
+import api, { getResponseList, getResponseTotalPages } from "@/lib/api";
 
 interface Report {
   id: string;
@@ -18,25 +18,31 @@ interface Report {
 export default function RaporlarPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/api/admin/reports");
-      setReports(res.data.data || []);
+      const params: Record<string, string | number> = { page, limit: 20 };
+      if (status) params.status = status;
+      const res = await api.get("/admin/reports", { params });
+      setReports(getResponseList<Report>(res.data));
+      setTotalPages(getResponseTotalPages(res.data));
     } catch {
       setReports([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, status]);
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
   const handleAction = async (id: string, action: "review" | "dismiss") => {
-    await api.patch(`/api/admin/reports/${id}/${action}`);
+    await api.patch(`/admin/reports/${id}/${action}`);
     fetchReports();
   };
 
@@ -50,6 +56,14 @@ export default function RaporlarPage() {
   return (
     <AdminLayout>
       <h1 className="text-2xl font-bold text-foreground">Rapor Yönetimi</h1>
+
+      <div className="mt-4 flex gap-2">
+        {[{ label: "Tümü", value: "" }, { label: "Bekleyen", value: "pending" }, { label: "İncelendi", value: "reviewed" }, { label: "Reddedildi", value: "dismissed" }].map((s) => (
+          <button key={s.value} onClick={() => { setStatus(s.value); setPage(1); }} className={`rounded-lg px-3 py-1.5 text-sm ${status === s.value ? "bg-primary text-white" : "border border-border text-muted hover:bg-gray-50"}`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
 
       <div className="mt-6 rounded-xl border border-border bg-card-bg overflow-hidden">
         <table className="w-full text-sm">
@@ -88,6 +102,14 @@ export default function RaporlarPage() {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex justify-center gap-2">
+          <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded border px-3 py-1 text-sm disabled:opacity-50">Önceki</button>
+          <span className="px-3 py-1 text-sm text-muted">{page} / {totalPages}</span>
+          <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded border px-3 py-1 text-sm disabled:opacity-50">Sonraki</button>
+        </div>
+      )}
     </AdminLayout>
   );
 }

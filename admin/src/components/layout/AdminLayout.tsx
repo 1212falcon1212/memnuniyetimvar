@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
+import api from "@/lib/api";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,9 +15,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem("adminToken");
     if (!token) {
       router.push("/login");
-    } else {
-      setAuthenticated(true);
+      return;
     }
+
+    api.get("/admin/dashboard")
+      .then(() => setAuthenticated(true))
+      .catch(() => {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminName");
+        router.push("/login");
+      });
   }, [router]);
 
   if (!authenticated) {

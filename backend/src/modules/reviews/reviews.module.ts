@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bull';
 import { ReviewsService } from './reviews.service';
 import { ReviewsController } from './reviews.controller';
 import { Review } from './entities/review.entity';
@@ -10,9 +11,13 @@ import { Company } from '../companies/entities/company.entity';
 import { User } from '../users/entities/user.entity';
 import { Tag } from '../tags/entities/tag.entity';
 import { Report } from '../reports/entities/report.entity';
+import { ReviewInvitation } from '../advertising/entities/review-invitation.entity';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
+    UploadModule,
+    BullModule.registerQueue({ name: 'moderation' }),
     TypeOrmModule.forFeature([
       Review,
       ReviewImage,
@@ -22,6 +27,7 @@ import { Report } from '../reports/entities/report.entity';
       User,
       Tag,
       Report,
+      ReviewInvitation,
     ]),
   ],
   controllers: [ReviewsController],

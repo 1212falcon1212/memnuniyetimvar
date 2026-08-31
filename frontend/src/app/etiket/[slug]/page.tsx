@@ -45,6 +45,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `#${tagName} Etiketli Yorumlar`,
     description: `${tagName} etiketine sahip memnuniyet yorumlari ve degerlendirmeler.`,
+    alternates: { canonical: `/etiket/${slug}` },
+    openGraph: {
+      title: `#${tagName} Etiketli Yorumlar`,
+      description: `${tagName} etiketine sahip memnuniyet yorumları ve değerlendirmeler.`,
+      type: "website",
+      url: `/etiket/${slug}`,
+    },
   };
 }
 

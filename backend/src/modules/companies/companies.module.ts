@@ -7,6 +7,7 @@ import { CompanyCategory } from './entities/company-category.entity';
 import { CompanyClaim } from './entities/company-claim.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Review } from '../reviews/entities/review.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { Review } from '../reviews/entities/review.entity';
       CompanyClaim,
       Category,
       Review,
+      User,
     ]),
   ],
   controllers: [CompaniesController],

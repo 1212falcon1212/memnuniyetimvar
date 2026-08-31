@@ -2,13 +2,17 @@
 
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { useEffect, useState } from "react";
-import api from "@/lib/api";
+import api, { getResponseData, getResponseList } from "@/lib/api";
 
 interface DashboardStats {
-  todayReviews: number;
+  todayReviews?: number;
   pendingReviews: number;
   totalUsers: number;
-  responseRate: number;
+  totalCompanies?: number;
+  totalReviews?: number;
+  totalReports?: number;
+  pendingReports?: number;
+  responseRate?: number;
 }
 
 interface PendingReview {
@@ -34,24 +38,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get("/api/admin/dashboard/stats").catch(() => ({ data: { data: null } })),
-      api.get("/api/admin/reviews?status=pending&limit=5").catch(() => ({ data: { data: [] } })),
-      api.get("/api/admin/activity-logs?limit=5").catch(() => ({ data: { data: [] } })),
+      api.get("/admin/dashboard").catch(() => ({ data: { data: null } })),
+      api.get("/admin/reviews?status=pending&limit=5").catch(() => ({ data: { data: [] } })),
+      api.get("/admin/activity-logs?limit=5").catch(() => ({ data: { data: [] } })),
     ]).then(([statsRes, reviewsRes, logsRes]) => {
-      setStats(statsRes.data.data);
-      setPendingReviews(reviewsRes.data.data || []);
-      setActivities(logsRes.data.data || []);
+      setStats(getResponseData<DashboardStats>(statsRes.data));
+      setPendingReviews(getResponseList<PendingReview>(reviewsRes.data));
+      setActivities(getResponseList<ActivityLog>(logsRes.data));
       setLoading(false);
     });
   }, []);
 
   const handleApprove = async (id: string) => {
-    await api.patch(`/api/admin/reviews/${id}/approve`);
+    await api.patch(`/admin/reviews/${id}/approve`);
     setPendingReviews((prev) => prev.filter((r) => r.id !== id));
   };
 
   const handleReject = async (id: string) => {
-    await api.patch(`/api/admin/reviews/${id}/reject`);
+    await api.patch(`/admin/reviews/${id}/reject`);
     setPendingReviews((prev) => prev.filter((r) => r.id !== id));
   };
 
@@ -62,10 +66,10 @@ export default function DashboardPage() {
 
   const statCards = stats
     ? [
-        { label: "Bugün Yorum", value: stats.todayReviews.toString(), color: "bg-blue-50 text-blue-700" },
-        { label: "Bekleyen", value: stats.pendingReviews.toString(), color: "bg-yellow-50 text-yellow-700" },
-        { label: "Toplam Üye", value: formatNumber(stats.totalUsers), color: "bg-green-50 text-green-700" },
-        { label: "Yanıt Oranı", value: `%${stats.responseRate}`, color: "bg-purple-50 text-purple-700" },
+        { label: "Toplam Yorum", value: formatNumber(stats.totalReviews ?? stats.todayReviews ?? 0), color: "bg-blue-50 text-blue-700" },
+        { label: "Bekleyen", value: formatNumber(stats.pendingReviews ?? 0), color: "bg-yellow-50 text-yellow-700" },
+        { label: "Toplam Üye", value: formatNumber(stats.totalUsers ?? 0), color: "bg-green-50 text-green-700" },
+        { label: "Rapor Bekleyen", value: formatNumber(stats.pendingReports ?? 0), color: "bg-purple-50 text-purple-700" },
       ]
     : [];
 

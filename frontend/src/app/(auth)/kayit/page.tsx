@@ -12,6 +12,7 @@ export default function KayitPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -19,6 +20,18 @@ export default function KayitPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    const fe: Record<string, string> = {};
+    if (!form.fullName.trim()) fe.fullName = "Ad Soyad gereklidir.";
+    if (!form.email.trim()) fe.email = "E-posta gereklidir.";
+    else if (!/\S+@\S+\.\S+/.test(form.email)) fe.email = "Geçerli bir e-posta girin.";
+    if (!form.phone.trim()) fe.phone = "Telefon gereklidir.";
+    else if (form.phone.replace(/\D/g, "").length < 10) fe.phone = "Geçerli bir telefon girin.";
+    if (!form.password) fe.password = "Şifre gereklidir.";
+    else if (form.password.length < 8) fe.password = "Şifre en az 8 karakter olmalıdır.";
+    if (Object.keys(fe).length > 0) { setFieldErrors(fe); return; }
+
     setLoading(true);
     setError("");
 
@@ -45,7 +58,7 @@ export default function KayitPage() {
 
       localStorage.setItem("accessToken", data.data.accessToken);
       localStorage.setItem("refreshToken", data.data.refreshToken);
-      window.location.href = "/";
+      window.location.href = "/profil?verify=1";
     } catch {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
     } finally {
@@ -82,9 +95,10 @@ export default function KayitPage() {
               required
               value={form.fullName}
               onChange={handleChange}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.fullName ? "border-red-400" : "border-gray-300"}`}
               placeholder="Ahmet Yılmaz"
             />
+            {fieldErrors.fullName && <p className="mt-1 text-xs text-red-600">{fieldErrors.fullName}</p>}
           </div>
 
           <div>
@@ -98,9 +112,10 @@ export default function KayitPage() {
               required
               value={form.email}
               onChange={handleChange}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.email ? "border-red-400" : "border-gray-300"}`}
               placeholder="ornek@email.com"
             />
+            {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
           </div>
 
           <div>
@@ -114,9 +129,10 @@ export default function KayitPage() {
               required
               value={form.phone}
               onChange={handleChange}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.phone ? "border-red-400" : "border-gray-300"}`}
               placeholder="+905551234567"
             />
+            {fieldErrors.phone && <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>}
           </div>
 
           <div>
@@ -131,9 +147,10 @@ export default function KayitPage() {
               minLength={8}
               value={form.password}
               onChange={handleChange}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.password ? "border-red-400" : "border-gray-300"}`}
               placeholder="En az 8 karakter"
             />
+            {fieldErrors.password && <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>}
           </div>
 
           <button

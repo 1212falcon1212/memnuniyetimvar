@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { SearchBar } from "./SearchBar";
 import { MobileMenu } from "./MobileMenu";
+import { useAuthStore } from "@/store/authStore";
 
 const navigation = [
   { name: "Memnuniyetler", href: "/memnuniyetler" },
@@ -87,6 +88,7 @@ function AnnouncementBar() {
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, isAuthenticated, isLoading, logout } = useAuthStore();
 
   return (
     <>
@@ -125,12 +127,32 @@ export function Header() {
 
             {/* Right: Auth + CTA */}
             <div className="hidden md:flex items-center gap-4">
-              <Link
-                href="/giris"
-                className="text-sm font-medium text-foreground/70 transition-colors hover:text-[#166534] whitespace-nowrap"
-              >
-                Giriş Yap / Üye Ol
-              </Link>
+              {isLoading ? (
+                <span className="h-5 w-28 animate-pulse rounded bg-gray-100" />
+              ) : isAuthenticated ? (
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/profil"
+                    className="text-sm font-medium text-foreground/70 transition-colors hover:text-[#166534] whitespace-nowrap"
+                  >
+                    {user?.fullName || "Profilim"}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="text-sm font-medium text-foreground/60 transition-colors hover:text-red-600 whitespace-nowrap"
+                  >
+                    Çıkış Yap
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/giris"
+                  className="text-sm font-medium text-foreground/70 transition-colors hover:text-[#166534] whitespace-nowrap"
+                >
+                  Giriş Yap / Üye Ol
+                </Link>
+              )}
               <Link
                 href="/memnuniyet/yaz"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#166534] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#166534]-dark hover:shadow-md active:scale-[0.98] whitespace-nowrap"

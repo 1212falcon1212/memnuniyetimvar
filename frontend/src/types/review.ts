@@ -10,6 +10,8 @@ export interface Review {
   helpfulCount: number;
   publishedAt: string | null;
   createdAt: string;
+  verifiedCustomer?: boolean;
+  source?: "organic" | "campaign_invite";
   user: {
     id: string;
     fullName: string;

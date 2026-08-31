@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import * as bcrypt from 'bcrypt';
+import { MeiliSearch } from 'meilisearch';
 import { seedCategories } from './category.seed';
 import { generateSlug, generateUniqueSlug } from '../../common/utils/slug.util';
 
@@ -212,6 +213,63 @@ async function runSeed() {
     }
 
     console.log(`Seeded ${total} reviews across ${savedCompanies.length} companies.`);
+  }
+
+  // 7. Meilisearch toplu indexleme
+  try {
+    const msClient = new MeiliSearch({
+      host: process.env.MEILISEARCH_HOST || 'http://localhost:7701',
+      apiKey: process.env.MEILISEARCH_API_KEY || 'memnuniyetimvar_dev_key',
+    });
+
+    const allCompanies = await companyRepo.find({ relations: ['category'] });
+    const companyDocs = allCompanies.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      description: c.description ?? '',
+      city: c.city ?? '',
+      categoryName: c.category?.name ?? '',
+      avgRating: Number(c.avgRating) || 0,
+      reviewCount: c.reviewCount || 0,
+      memnuniyetScore: Number(c.memnuniyetScore) || 0,
+      status: c.status,
+    }));
+    await msClient.index('companies').addDocuments(companyDocs);
+
+    const allReviews = await reviewRepo.find();
+    const reviewDocs = [];
+    for (const r of allReviews) {
+      const comp = allCompanies.find((c: any) => c.id === r.companyId);
+      const usr = savedUsers.find((u: any) => u.id === r.userId);
+      reviewDocs.push({
+        id: r.id,
+        title: r.title,
+        content: r.content,
+        slug: r.slug,
+        companyName: comp?.name ?? '',
+        companySlug: comp?.slug ?? '',
+        userName: usr?.full_name ?? '',
+        rating: r.rating,
+        status: r.status,
+      });
+    }
+    await msClient.index('reviews').addDocuments(reviewDocs);
+
+    const allCategories = await categoryRepo.find();
+    const categoryDocs = allCategories.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      description: c.description ?? '',
+      parentId: c.parentId,
+      isActive: c.isActive,
+    }));
+    await msClient.index('categories').addDocuments(categoryDocs);
+
+    console.log(`Indexed ${companyDocs.length} companies, ${reviewDocs.length} reviews, ${categoryDocs.length} categories in Meilisearch.`);
+  } catch (err: any) {
+    console.warn(`Meilisearch indexleme atlandi: ${err.message}`);
   }
 
   await dataSource.destroy();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ReviewForm } from "@/components/review/ReviewForm";
 import { useAuthStore } from "@/store/authStore";
 import Link from "next/link";
@@ -11,6 +11,9 @@ const API_BASE =
 
 export default function YorumYazPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialCompanySlug = searchParams.get("firma") || "";
+  const invitationToken = searchParams.get("davet") || "";
   const { isAuthenticated, isLoading: authLoading, initAuth } = useAuthStore();
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export default function YorumYazPage() {
         rating: data.rating,
       };
       if (data.tagIds.length > 0) body.tagIds = data.tagIds;
+      if (invitationToken) body.invitationToken = invitationToken;
 
       const response = await fetch(`${API_BASE}/reviews`, {
         method: "POST",
@@ -69,23 +73,28 @@ export default function YorumYazPage() {
       }
 
       const result = await response.json();
+      const reviewId = result.data?.id;
       const slug = result.data?.slug;
 
-      if (data.images.length > 0 && slug) {
+      if (data.images.length > 0 && reviewId) {
         const formData = new FormData();
         data.images.forEach((file) => {
           formData.append("images", file);
         });
 
-        await fetch(`${API_BASE}/reviews/${slug}/images`, {
+        const imageResponse = await fetch(`${API_BASE}/reviews/${reviewId}/images`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
           },
           body: formData,
-        }).catch(() => {
-          // Image upload failure is non-critical; review is already saved
         });
+
+        if (!imageResponse.ok) {
+          setError("Yorum kaydedildi ancak gorseller yuklenemedi. Lutfen daha sonra tekrar deneyin.");
+          setLoading(false);
+          return;
+        }
       }
 
       router.push(slug ? `/memnuniyet/${slug}` : "/");
@@ -181,7 +190,7 @@ export default function YorumYazPage() {
 
       {/* Form Card */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 sm:p-8">
-        <ReviewForm onSubmit={handleSubmit} loading={loading} error={error} />
+        <ReviewForm onSubmit={handleSubmit} loading={loading} error={error} initialCompanySlug={initialCompanySlug} />
       </div>
     </div>
   );

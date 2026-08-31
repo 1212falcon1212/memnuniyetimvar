@@ -64,4 +64,31 @@ export class SearchController {
       offset: offset || 0,
     });
   }
+
+  @Get('suggest')
+  @Public()
+  @ApiOperation({ summary: 'Arama önerileri (otomatik tamamlama)' })
+  @ApiQuery({ name: 'q', required: true, description: 'Arama sorgusu' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Sonuc limiti', type: Number })
+  async suggest(
+    @Query('q') query: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.searchService.suggest(query, limit || 5);
+  }
+
+  @Get('categories')
+  @Public()
+  @ApiOperation({ summary: 'Kategori arama' })
+  @ApiQuery({ name: 'q', required: true })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async searchCategories(
+    @Query('q') query: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.searchService.searchCategories(query, {
+      filter: 'isActive = true',
+      limit: limit || 20,
+    });
+  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
+import Image from "next/image";
 import { StarRating } from "@/components/review/StarRating";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
@@ -18,6 +19,7 @@ interface ReviewFormProps {
   onSubmit: (data: ReviewFormData) => Promise<void>;
   loading: boolean;
   error: string | null;
+  initialCompanySlug?: string;
 }
 
 interface CompanyOption {
@@ -31,7 +33,7 @@ interface TagOption {
   name: string;
 }
 
-export function ReviewForm({ onSubmit, loading, error }: ReviewFormProps) {
+export function ReviewForm({ onSubmit, loading, error, initialCompanySlug }: ReviewFormProps) {
   const [companyQuery, setCompanyQuery] = useState("");
   const [companyResults, setCompanyResults] = useState<CompanyOption[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<CompanyOption | null>(null);
@@ -55,7 +57,7 @@ export function ReviewForm({ onSubmit, loading, error }: ReviewFormProps) {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`${API}/companies/search?query=${encodeURIComponent(companyQuery)}&limit=5`);
+        const res = await fetch(`${API}/companies/search?q=${encodeURIComponent(companyQuery)}&limit=5`);
         const json = await res.json();
         setCompanyResults(json.data || []);
         setShowDropdown(true);
@@ -71,6 +73,20 @@ export function ReviewForm({ onSubmit, loading, error }: ReviewFormProps) {
       .then((json) => setAvailableTags(json.data || []))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!initialCompanySlug || selectedCompany) return;
+    fetch(`${API}/companies/${initialCompanySlug}`)
+      .then((r) => r.json())
+      .then((json) => {
+        const c = json.data;
+        if (c) {
+          setSelectedCompany({ id: c.id, name: c.name, slug: c.slug });
+          setCompanyQuery(c.name);
+        }
+      })
+      .catch(() => {});
+  }, [initialCompanySlug, selectedCompany]);
 
   function selectCompany(c: CompanyOption) {
     setSelectedCompany(c);
@@ -132,7 +148,7 @@ export function ReviewForm({ onSubmit, loading, error }: ReviewFormProps) {
         {selectedCompany ? (
           <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-primary bg-primary-light px-4 py-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
-              {selectedCompany.name.charAt(0)}
+              {selectedCompany.name?.charAt(0) || "F"}
             </span>
             <span className="text-sm font-medium text-foreground">{selectedCompany.name}</span>
             <button type="button" onClick={clearCompany} className="ml-auto text-muted hover:text-red-500">
@@ -161,7 +177,7 @@ export function ReviewForm({ onSubmit, loading, error }: ReviewFormProps) {
                     className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light text-sm font-bold text-primary">
-                      {c.name.charAt(0)}
+                      {c.name?.charAt(0) || "F"}
                     </span>
                     <span className="text-sm font-medium">{c.name}</span>
                   </button>
@@ -237,7 +253,14 @@ export function ReviewForm({ onSubmit, loading, error }: ReviewFormProps) {
           <div className="mt-2 flex flex-wrap gap-3">
             {images.map((file, i) => (
               <div key={`${file.name}-${i}`} className="group relative h-20 w-20 overflow-hidden rounded-xl border border-gray-200">
-                <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
+                <Image
+                  src={URL.createObjectURL(file)}
+                  alt=""
+                  width={80}
+                  height={80}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
                 <button type="button" onClick={() => setImages((p) => p.filter((_, j) => j !== i))}
                   className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-white font-bold">X</span>

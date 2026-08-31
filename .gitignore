@@ -5,6 +5,7 @@ node_modules/
 backend/dist/
 frontend/.next/
 admin/.next/
+*.tsbuildinfo
 
 # Environment files
 .env
@@ -33,3 +34,6 @@ coverage/
 # Logs
 *.log
 npm-debug.log*
+
+# Local agent/session state
+.remember/

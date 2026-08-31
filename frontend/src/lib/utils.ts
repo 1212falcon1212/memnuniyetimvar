@@ -1,4 +1,7 @@
 export function formatDate(date: string | Date): string {
+  if (!date) return "";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("tr-TR", {
     day: "numeric",
     month: "long",
@@ -7,8 +10,10 @@ export function formatDate(date: string | Date): string {
 }
 
 export function formatRelativeTime(date: string | Date): string {
-  const now = new Date();
+  if (!date) return "";
   const target = new Date(date);
+  if (isNaN(target.getTime())) return "";
+  const now = new Date();
   const diffMs = now.getTime() - target.getTime();
   const diffMinutes = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);

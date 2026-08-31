@@ -13,10 +13,19 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      'http://localhost:3001', // Admin panel
-    ],
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      const allowedOrigins = [
+        process.env.FRONTEND_URL || 'http://localhost:3000',
+        process.env.ADMIN_URL || 'http://localhost:3001',
+      ];
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
+    },
     credentials: true,
   });
 

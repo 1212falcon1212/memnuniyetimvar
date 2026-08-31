@@ -8,10 +8,13 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFiles,
   ParseUUIDPipe,
   DefaultValuePipe,
   ParseIntPipe,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -19,17 +22,23 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
-import { CreateReviewDto, UpdateReviewDto } from './dto';
+import { CreateReviewDto, ReportReviewDto, UpdateReviewDto } from './dto';
 import { Public, CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { UploadService } from '../upload/upload.service';
 
 @ApiTags('Reviews')
 @Controller('reviews')
 @UseGuards(JwtAuthGuard)
 export class ReviewsController {
-  constructor(private readonly reviewsService: ReviewsService) {}
+  constructor(
+    private readonly reviewsService: ReviewsService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   // ── Static routes FIRST ─────────────────────────────────────
 
@@ -150,26 +159,43 @@ export class ReviewsController {
   report(
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason: string,
-    @Body('description') description: string,
+    @Body() dto: ReportReviewDto,
   ) {
-    return this.reviewsService.report(userId, id, reason, description);
+    return this.reviewsService.report(userId, id, dto.reason, dto.description ?? '');
   }
 
   @Post(':id/images')
+  @UseInterceptors(FilesInterceptor('images', 5))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Yoruma resim ekle' })
   @ApiParam({ name: 'id', description: 'Yorum UUID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        images: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Resimler basariyla eklendi' })
   @ApiResponse({ status: 400, description: 'Maksimum resim sayisi asildi' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erisim' })
   @ApiResponse({ status: 403, description: 'Bu yoruma resim ekleme yetkiniz yok' })
   @ApiResponse({ status: 404, description: 'Yorum bulunamadi' })
-  addImages(
+  async addImages(
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('imageUrls') imageUrls: string[],
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
+    const uploadResults = await Promise.all(
+      files.map((file) => this.uploadService.uploadReviewImage(file)),
+    );
+    const imageUrls = uploadResults.map((result) => result.url);
+
     return this.reviewsService.addImages(id, userId, imageUrls);
   }
 }

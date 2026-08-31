@@ -7,13 +7,15 @@ export default function SifreSifirlaPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
-      await fetch(
+      const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/auth/forgot-password`,
         {
           method: "POST",
@@ -21,7 +23,14 @@ export default function SifreSifirlaPage() {
           body: JSON.stringify({ email }),
         }
       );
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error?.message || "Bir hata oluştu.");
+        return;
+      }
       setSent(true);
+    } catch {
+      setError("Bağlantı hatası. Lütfen tekrar deneyin.");
     } finally {
       setLoading(false);
     }
@@ -49,6 +58,9 @@ export default function SifreSifirlaPage() {
               E-posta adresinizi girin, şifre sıfırlama bağlantısı gönderelim.
             </p>
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+              {error && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+              )}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   E-posta

@@ -19,6 +19,8 @@ export interface Company {
   responseRate: number;
   memnuniyetScore: number;
   categoryId: number | null;
+  isSponsored?: boolean;
+  sponsoredUntil?: string | null;
 }
 
 export interface CompanyListItem {
@@ -32,4 +34,5 @@ export interface CompanyListItem {
   reviewCount: number;
   memnuniyetScore: number;
   categoryName: string | null;
+  isSponsored?: boolean;
 }

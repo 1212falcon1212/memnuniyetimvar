@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { SponsoredBadge } from "@/components/common/Badges";
 
 interface CompanyCardProps {
   name: string;
@@ -10,17 +12,21 @@ interface CompanyCardProps {
   reviewCount: number;
   memnuniyetScore: number;
   categoryName: string | null;
+  isSponsored?: boolean;
 }
 
 export function CompanyCard({
   name,
   slug,
+  logoUrl,
   city,
   isVerified,
   avgRating,
   reviewCount,
   memnuniyetScore,
+  isSponsored,
 }: CompanyCardProps) {
+  const displayName = name || "Firma";
   const scorePercent = Math.min(memnuniyetScore, 100);
 
   return (
@@ -29,19 +35,31 @@ export function CompanyCard({
       className="block rounded-xl border border-gray-200 bg-white p-5 hover:border-primary hover:shadow-md transition-all"
     >
       <div className="flex items-start gap-4">
-        {/* Logo placeholder */}
-        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-xl font-bold text-primary">
-          {name.charAt(0).toUpperCase()}
-        </div>
+        {logoUrl ? (
+          <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-emerald-50">
+            <Image
+              src={logoUrl}
+              alt={displayName}
+              fill
+              className="object-contain p-1"
+              sizes="56px"
+            />
+          </div>
+        ) : (
+          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-xl font-bold text-primary">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-gray-900 truncate">{name}</h3>
+            <h3 className="text-base font-semibold text-gray-900 truncate">{displayName}</h3>
             {isVerified && (
               <span className="flex-shrink-0 text-primary" title="Doğrulanmış Firma">
                 ✅
               </span>
             )}
+            {isSponsored && <SponsoredBadge />}
           </div>
 
           {city && <p className="text-sm text-gray-500 mt-0.5">📍 {city}</p>}

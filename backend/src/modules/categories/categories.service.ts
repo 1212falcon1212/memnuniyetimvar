@@ -1,13 +1,25 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
+import Redis from 'ioredis';
 import { Category } from './entities/category.entity';
+import { Company, CompanyStatus } from '../companies/entities/company.entity';
+import { SearchService, CategorySearchDocument } from '../search/search.service';
 
 @Injectable()
 export class CategoriesService {
+  private readonly logger = new Logger(CategoriesService.name);
+  private readonly redis = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: Number(process.env.REDIS_PORT || 6380),
+  });
+
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+    @InjectRepository(Company)
+    private readonly companyRepo: Repository<Company>,
+    private readonly searchService: SearchService,
   ) {}
 
   /**
@@ -68,11 +80,27 @@ export class CategoriesService {
    * Return the 10 categories with the highest review_count.
    */
   async findPopular(): Promise<Category[]> {
-    return this.categoryRepo.find({
+    const cacheKey = 'cache:categories:popular';
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) return JSON.parse(cached) as Category[];
+    } catch (error) {
+      this.logger.warn('Populer kategoriler cache okunamadi');
+    }
+
+    const categories = await this.categoryRepo.find({
       where: { isActive: true, parentId: IsNull() },
       order: { reviewCount: 'DESC' },
       take: 10,
     });
+
+    try {
+      await this.redis.set(cacheKey, JSON.stringify(categories), 'EX', 300);
+    } catch (error) {
+      this.logger.warn('Populer kategoriler cache yazilamadi');
+    }
+
+    return categories;
   }
 
   /**
@@ -82,20 +110,32 @@ export class CategoriesService {
   async findTopByCategory(
     slug: string,
     limit: number,
-  ): Promise<{ slug: string; limit: number; companies: unknown[] }> {
+  ) {
     const category = await this.categoryRepo.findOne({
       where: { slug, isActive: true },
+      relations: ['children'],
     });
 
     if (!category) {
       throw new NotFoundException(`Kategori bulunamadı: ${slug}`);
     }
 
-    // Companies module not yet integrated
+    const categoryIds = [category.id];
+    if (category.children?.length) {
+      categoryIds.push(...category.children.map((c) => c.id));
+    }
+
+    const companies = await this.companyRepo.find({
+      where: categoryIds.map((cid) => ({ categoryId: cid, status: CompanyStatus.ACTIVE })),
+      order: { memnuniyetScore: 'DESC' },
+      take: limit,
+    });
+
     return {
       slug: category.slug,
+      name: category.name,
       limit,
-      companies: [],
+      companies,
     };
   }
 }

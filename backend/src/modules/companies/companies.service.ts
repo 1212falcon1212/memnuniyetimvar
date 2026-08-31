@@ -1,21 +1,30 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThanOrEqual } from 'typeorm';
+import Redis from 'ioredis';
 import { Company, CompanyStatus } from './entities/company.entity';
 import { CompanyCategory } from './entities/company-category.entity';
 import { CompanyClaim } from './entities/company-claim.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Review, ReviewStatus } from '../reviews/entities/review.entity';
+import { User, UserStatus } from '../users/entities/user.entity';
+import { SearchService, CompanySearchDocument } from '../search/search.service';
 import {
   CreateCompanyDto,
   CompanyFilterDto,
   ClaimCompanyDto,
 } from './dto';
 import { PaginationDto } from '../../common/dto';
-import { generateUniqueSlug } from '../../common/utils/slug.util';
+import { generateSlug } from '../../common/utils/slug.util';
 
 @Injectable()
 export class CompaniesService {
+  private readonly logger = new Logger(CompaniesService.name);
+  private readonly redis = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: Number(process.env.REDIS_PORT || 6380),
+  });
+
   constructor(
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
@@ -27,6 +36,9 @@ export class CompaniesService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Review)
     private readonly reviewRepository: Repository<Review>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly searchService: SearchService,
   ) {}
 
   async findAll(filter: CompanyFilterDto) {
@@ -102,16 +114,36 @@ export class CompaniesService {
   async findReviewsByCompany(
     slug: string,
     pagination: PaginationDto,
+    filters?: { sortBy?: string; rating?: string },
   ) {
     const company = await this.findBySlug(slug);
 
+    const where: Record<string, unknown> = {
+      companyId: company.id,
+      status: ReviewStatus.PUBLISHED,
+    };
+
+    if (filters?.rating) {
+      const r = Number(filters.rating);
+      if (r >= 1 && r <= 5) where.rating = r;
+    }
+
+    const order: Record<string, string> = { createdAt: 'DESC' };
+    if (filters?.sortBy === 'helpful') {
+      order.helpfulCount = 'DESC';
+      order.createdAt = 'DESC';
+    } else if (filters?.sortBy === 'highest') {
+      order.rating = 'DESC';
+      order.createdAt = 'DESC';
+    } else if (filters?.sortBy === 'lowest') {
+      order.rating = 'ASC';
+      order.createdAt = 'DESC';
+    }
+
     const [data, total] = await this.reviewRepository.findAndCount({
-      where: {
-        companyId: company.id,
-        status: ReviewStatus.PUBLISHED,
-      },
+      where,
       relations: ['user', 'images', 'tags', 'companyResponses'],
-      order: { createdAt: 'DESC' },
+      order,
       skip: pagination.skip,
       take: pagination.limit,
     });
@@ -139,25 +171,131 @@ export class CompaniesService {
   }
 
   async findTop(limit: number) {
-    return this.companyRepository.find({
+    const cacheKey = `cache:companies:top:${limit}`;
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) return JSON.parse(cached) as Array<Company & { weeklyChange: number }>;
+    } catch (error) {
+      this.logger.warn('Top firmalar cache okunamadi');
+    }
+
+    const companies = await this.companyRepository.find({
       where: { status: CompanyStatus.ACTIVE },
       relations: ['category'],
       order: { memnuniyetScore: 'DESC' },
       take: limit,
     });
+
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const result = await Promise.all(
+      companies.map(async (company) => {
+        const lastWeekScore = await this.getLastWeekScore(company.id, oneWeekAgo);
+        const weeklyChange = lastWeekScore
+          ? Math.round(Number(company.memnuniyetScore) - lastWeekScore)
+          : 0;
+        return { ...company, weeklyChange };
+      }),
+    );
+
+    try {
+      await this.redis.set(cacheKey, JSON.stringify(result), 'EX', 300);
+    } catch (error) {
+      this.logger.warn('Top firmalar cache yazilamadi');
+    }
+
+    return result;
   }
 
   async findTrending(limit: number) {
-    return this.companyRepository.find({
+    const cacheKey = `cache:companies:trending:${limit}`;
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) return JSON.parse(cached) as Array<Company & { growthPercent: number }>;
+    } catch (error) {
+      this.logger.warn('Trend firmalar cache okunamadi');
+    }
+
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+    const companies = await this.companyRepository.find({
       where: { status: CompanyStatus.ACTIVE },
       relations: ['category'],
       order: { reviewCount: 'DESC' },
-      take: limit,
+      take: limit * 2,
     });
+
+    const withGrowth = await Promise.all(
+      companies.map(async (company) => {
+        const [thisWeek, lastWeek] = await Promise.all([
+          this.reviewRepository.count({
+            where: {
+              companyId: company.id,
+              status: ReviewStatus.PUBLISHED,
+              createdAt: MoreThanOrEqual(oneWeekAgo),
+            },
+          }),
+          this.reviewRepository.count({
+            where: {
+              companyId: company.id,
+              status: ReviewStatus.PUBLISHED,
+              createdAt: MoreThanOrEqual(twoWeeksAgo),
+            },
+          }),
+        ]);
+
+        const growthPercent = lastWeek > 0
+          ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+          : thisWeek > 0 ? 100 : 0;
+
+        return { ...company, growthPercent };
+      }),
+    );
+
+    const result = withGrowth
+      .sort((a, b) => b.growthPercent - a.growthPercent)
+      .slice(0, limit);
+
+    try {
+      await this.redis.set(cacheKey, JSON.stringify(result), 'EX', 300);
+    } catch (error) {
+      this.logger.warn('Trend firmalar cache yazilamadi');
+    }
+
+    return result;
+  }
+
+  private async getLastWeekScore(companyId: string, since: Date): Promise<number | null> {
+    const result = await this.reviewRepository
+      .createQueryBuilder('r')
+      .select('AVG(r.rating)', 'avgRating')
+      .where('r.company_id = :companyId', { companyId })
+      .andWhere('r.status = :status', { status: 'published' })
+      .andWhere('r.created_at < :since', { since })
+      .getRawOne<{ avgRating: string | null }>();
+
+    if (!result?.avgRating) return null;
+    const avgRating = Number(result.avgRating);
+    const reviewCountRow = await this.reviewRepository
+      .createQueryBuilder('r')
+      .select('COUNT(r.id)', 'cnt')
+      .where('r.company_id = :companyId', { companyId })
+      .andWhere('r.status = :status', { status: 'published' })
+      .andWhere('r.created_at < :since', { since })
+      .getRawOne<{ cnt: string }>();
+
+    const reviewCount = Number(reviewCountRow?.cnt || 0);
+    const responseRate = 84;
+    const reviewVolumeScore = Math.min(reviewCount / 50, 1) * 100;
+    return Math.round((avgRating / 5 * 100 * 0.6) + (responseRate * 0.3) + (reviewVolumeScore * 0.1));
   }
 
   async suggest(dto: CreateCompanyDto): Promise<Company> {
-    const slug = generateUniqueSlug(dto.name);
+    const slug = await this.createUniqueCompanySlug(dto.name);
 
     const company = this.companyRepository.create({
       name: dto.name,
@@ -243,6 +381,27 @@ export class CompaniesService {
   }
 
   async search(query: string, limit: number) {
+    try {
+      const result = await this.searchService.searchCompanies(query, {
+        filter: 'status = "active"',
+        sort: ['memnuniyetScore:desc'],
+        limit,
+      });
+
+      if (result.hits && result.hits.length > 0) {
+        const ids = result.hits.map((h: any) => h.id);
+        const companies = await this.companyRepository.find({
+          where: ids.map((id: string) => ({ id })),
+          relations: ['category'],
+        });
+
+        const ordered = ids.map((id: string) => companies.find((c) => c.id === id)).filter(Boolean);
+        return ordered;
+      }
+    } catch (error) {
+      this.logger.warn(`Meilisearch arama hatasi, DB fallback: ${error.message}`);
+    }
+
     return this.companyRepository
       .createQueryBuilder('company')
       .leftJoinAndSelect('company.category', 'category')
@@ -251,5 +410,89 @@ export class CompaniesService {
       .orderBy('company.memnuniyetScore', 'DESC')
       .take(limit)
       .getMany();
+  }
+
+  async syncToSearch(companyId: string): Promise<void> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+      relations: ['category'],
+    });
+    if (!company) return;
+
+    const doc: CompanySearchDocument = {
+      id: company.id,
+      name: company.name,
+      slug: company.slug,
+      description: company.description ?? '',
+      city: company.city ?? '',
+      categoryName: (company as any).category?.name ?? '',
+      avgRating: Number(company.avgRating) || 0,
+      reviewCount: company.reviewCount || 0,
+      memnuniyetScore: Number(company.memnuniyetScore) || 0,
+      status: company.status,
+    };
+
+    try {
+      await this.searchService.updateCompany(doc);
+    } catch (error) {
+      this.logger.warn(`Firma index guncelleme hatasi: ${error.message}`);
+    }
+  }
+
+  async getGlobalStats() {
+    const cacheKey = 'cache:stats:global';
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) return JSON.parse(cached) as { userCount: number; companyCount: number; reviewCount: number; avgRating: number };
+    } catch (error) {
+      this.logger.warn('Global stats cache okunamadi');
+    }
+
+    const userCount = await this.userRepository.count({ where: { status: UserStatus.ACTIVE } });
+    const companyCount = await this.companyRepository.count({ where: { status: CompanyStatus.ACTIVE } });
+    const reviewCount = await this.reviewRepository.count({ where: { status: ReviewStatus.PUBLISHED } });
+    const avgRatingResult = await this.reviewRepository
+      .createQueryBuilder('r')
+      .select('COALESCE(AVG(r.rating), 0)', 'avgRating')
+      .where('r.status = :status', { status: 'published' })
+      .getRawOne<{ avgRating: string }>();
+
+    const avgRating = Number(Number(avgRatingResult?.avgRating ?? 0).toFixed(1));
+
+    const stats = {
+      userCount,
+      companyCount,
+      reviewCount,
+      avgRating,
+    };
+
+    try {
+      await this.redis.set(cacheKey, JSON.stringify(stats), 'EX', 300);
+    } catch (error) {
+      this.logger.warn('Global stats cache yazilamadi');
+    }
+
+    return stats;
+  }
+
+  async removeFromSearch(companyId: string): Promise<void> {
+    try {
+      await this.searchService.removeCompany(companyId);
+    } catch (error) {
+      this.logger.warn(`Firma index silme hatasi: ${error.message}`);
+    }
+  }
+
+  private async createUniqueCompanySlug(name: string): Promise<string> {
+    const baseSlug = generateSlug(name);
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (await this.companyRepository.exists({ where: { slug } })) {
+      counter += 1;
+      slug = `${baseSlug}-${counter}`;
+    }
+
+    return slug;
   }
 }

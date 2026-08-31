@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 /* ------------------------------------------------------------------ */
 /*  API Fetch Helpers                                                   */
@@ -17,6 +18,66 @@ async function fetchAPI(endpoint: string) {
 
 const AVATAR_COLORS = ["#166534", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#e11d48", "#0d9488"];
 
+function formatStatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(".", ",")}K`;
+  return n.toLocaleString("tr-TR");
+}
+
+function buildPlatformStats(stats: { userCount: number; companyCount: number; reviewCount: number; avgRating: number } | null) {
+  const s = stats || { userCount: 0, companyCount: 0, reviewCount: 0, avgRating: 0 };
+  return [
+    {
+      label: "Bireysel Üye Sayısı",
+      value: formatStatNumber(s.userCount),
+      color: "#166534",
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+    },
+    {
+      label: "Kayıtlı Marka",
+      value: formatStatNumber(s.companyCount),
+      color: "#3b82f6",
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+      ),
+    },
+    {
+      label: "Paylaşılan Memnuniyet",
+      value: formatStatNumber(s.reviewCount),
+      color: "#8b5cf6",
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          <path d="M8 10h.01" />
+          <path d="M12 10h.01" />
+          <path d="M16 10h.01" />
+        </svg>
+      ),
+    },
+    {
+      label: "Ortalama Puan",
+      value: s.avgRating > 0 ? `${s.avgRating} / 5` : "-",
+      color: "#06b6d4",
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ),
+    },
+  ];
+}
+
 const CATEGORY_BANNERS: Record<string, string> = {
   "e-ticaret": "/images/categories/e-ticaret.svg",
   "telekomunikasyon": "/images/categories/telekomunikasyon.svg",
@@ -28,69 +89,21 @@ const CATEGORY_BANNERS: Record<string, string> = {
   "kargo-lojistik": "/images/categories/kargo.svg",
 };
 
-const platformStats = [
-  {
-    label: "Bireysel Üye Sayısı",
-    value: "14.262.584",
-    color: "#166534",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-  },
-  {
-    label: "Kayıtlı Marka",
-    value: "263.252",
-    color: "#3b82f6",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-      </svg>
-    ),
-  },
-  {
-    label: "Paylaşılan Memnuniyet",
-    value: "4.277.962",
-    color: "#8b5cf6",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        <path d="M8 10h.01" />
-        <path d="M12 10h.01" />
-        <path d="M16 10h.01" />
-      </svg>
-    ),
-  },
-  {
-    label: "Son 30 Günde Ziyaretçi",
-    value: "19.530.721",
-    color: "#06b6d4",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    ),
-  },
-];
-
 /* ------------------------------------------------------------------ */
 /*  Page Component                                                     */
 /* ------------------------------------------------------------------ */
 
 export default async function HomePage() {
   // Fetch real data from API
-  const [latestReviews, topCompaniesData, trendingData, categoriesData] = await Promise.all([
+  const [latestReviews, topCompaniesData, trendingData, categoriesData, globalStats] = await Promise.all([
     fetchAPI("/reviews/latest?limit=6"),
     fetchAPI("/companies/top?limit=5"),
     fetchAPI("/companies/trending?limit=5"),
     fetchAPI("/categories/popular"),
+    fetchAPI("/companies/stats/global"),
   ]);
+
+  const platformStats = buildPlatformStats(globalStats);
 
   // Map API data to component format
   const gundemReviews = (Array.isArray(latestReviews) ? latestReviews : []).map((r: any, i: number) => ({
@@ -110,8 +123,8 @@ export default async function HomePage() {
     slug: c.slug,
     color: AVATAR_COLORS[i % AVATAR_COLORS.length],
     score: Math.round(Number(c.memnuniyetScore) || 0),
-    change: Math.floor(Math.random() * 5),
-    direction: (["up", "up", "same", "down", "up"] as const)[i],
+    change: Number(c.weeklyChange) || 0,
+    direction: Number(c.weeklyChange) > 0 ? "up" as const : Number(c.weeklyChange) < 0 ? "down" as const : "same" as const,
     verified: c.isVerified,
   }));
 
@@ -119,9 +132,8 @@ export default async function HomePage() {
     name: c.name,
     slug: c.slug,
     category: c.category?.name || "",
-    growth: Math.floor(500 + Math.random() * 2500),
+    growth: Number(c.growthPercent) || 0,
     color: AVATAR_COLORS[i % AVATAR_COLORS.length],
-    sparkline: ["0,30 15,28 30,25 45,22 55,18 65,20 75,12 85,8 100,3", "0,32 15,30 30,28 45,26 55,22 65,18 75,15 85,10 100,5", "0,28 15,30 30,26 45,24 55,20 65,22 75,14 85,10 100,6", "0,34 15,32 30,30 45,26 55,28 65,22 75,18 85,12 100,8", "0,30 15,28 30,32 45,24 55,20 65,18 75,16 85,14 100,10"][i % 5],
   }));
 
   const categories = (Array.isArray(categoriesData) ? categoriesData : []).slice(0, 8).map((c: any) => ({
@@ -189,17 +201,20 @@ export default async function HomePage() {
                 <div className="absolute top-1/2 right-0 h-20 w-20 rounded-full bg-green-200/40" />
 
                 {/* Main image */}
-                <img
+                <Image
                   src="/images/hero-person.png"
                   alt="Memnun müşteri"
+                  width={520}
+                  height={400}
                   className="relative z-10 mx-auto w-full max-w-[520px] rounded-2xl object-cover"
+                  priority
                 />
 
                 {/* Floating badge - top right */}
                 <div className="absolute -right-2 top-8 z-20 flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 shadow-lg ring-1 ring-black/5 animate-fade-up animation-delay-400">
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm">✅</span>
                   <div>
-                    <p className="text-xs font-semibold text-gray-900">4.2M+</p>
+                    <p className="text-xs font-semibold text-gray-900">{platformStats[2]?.value || "-"}</p>
                     <p className="text-[10px] text-muted">Mutlu Müşteri</p>
                   </div>
                 </div>
@@ -208,7 +223,7 @@ export default async function HomePage() {
                 <div className="absolute -left-4 bottom-16 z-20 flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 shadow-lg ring-1 ring-black/5 animate-fade-up animation-delay-500">
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-sm">⭐</span>
                   <div>
-                    <p className="text-xs font-semibold text-gray-900">4.8 / 5</p>
+                    <p className="text-xs font-semibold text-gray-900">{platformStats[3]?.value || "-"}</p>
                     <p className="text-[10px] text-muted">Ortalama Puan</p>
                   </div>
                 </div>
@@ -392,7 +407,7 @@ export default async function HomePage() {
                     className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-base font-bold text-white"
                     style={{ backgroundColor: company.color }}
                   >
-                    {company.name.charAt(0)}
+                    {company.name?.charAt(0) || "F"}
                   </div>
 
                   {/* Company name */}
@@ -465,7 +480,7 @@ export default async function HomePage() {
                     className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-white text-lg font-bold"
                     style={{ color: company.color }}
                   >
-                    {company.name.charAt(0)}
+                    {company.name?.charAt(0) || "F"}
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-gray-900 transition-colors group-hover:text-[#166534]">
@@ -475,40 +490,32 @@ export default async function HomePage() {
                   </div>
                 </div>
 
-                {/* Sparkline */}
+                {/* Trend indicator */}
                 <div className="col-span-3 hidden justify-center sm:flex">
-                  <svg width="100" height="36" viewBox="0 0 100 36" className="text-[#166534]">
-                    <defs>
-                      <linearGradient id={`sparkFill-${company.slug}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#166534" />
-                        <stop offset="100%" stopColor="#166534" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <polyline
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      points={company.sparkline}
-                    />
-                    <polyline
-                      fill={`url(#sparkFill-${company.slug})`}
-                      stroke="none"
-                      points={`0,36 ${company.sparkline} 100,36`}
-                      opacity="0.15"
-                    />
-                  </svg>
+                  {company.growth > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-700">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+                      </svg>
+                      %{company.growth}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">&mdash;</span>
+                  )}
                 </div>
 
                 {/* Growth */}
                 <div className="col-span-5 text-right sm:col-span-3">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-800">
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-                    </svg>
-                    %{company.growth}
-                  </span>
+                  {company.growth > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-800">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+                      </svg>
+                      %{company.growth}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                  )}
                 </div>
               </Link>
             ))}

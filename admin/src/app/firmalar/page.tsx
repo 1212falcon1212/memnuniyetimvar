@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import api from "@/lib/api";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import api, { getResponseList, getResponseTotalPages } from "@/lib/api";
 
 interface Company {
   id: string;
@@ -14,7 +14,17 @@ interface Company {
   reviewCount: number;
   status: string;
   category?: { name: string };
+  categoryId?: number | null;
+  website?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  city?: string | null;
+  description?: string | null;
 }
+
+interface Category { id: number; name: string; }
+
+const emptyForm = { name: "", website: "", email: "", phone: "", city: "", description: "", status: "active", categoryId: "" };
 
 export default function FirmalarPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -22,14 +32,21 @@ export default function FirmalarPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Company | null>(null);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [error, setError] = useState("");
 
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
-      const res = await api.get("/api/admin/companies", { params: { page, limit: 20 } });
-      setCompanies(res.data.data || []);
-      setTotalPages(res.data.meta?.totalPages || 1);
+      const res = await api.get("/admin/companies", { params: { page, limit: 20 } });
+      setCompanies(getResponseList<Company>(res.data));
+      setTotalPages(getResponseTotalPages(res.data));
     } catch {
+      setError("Firmalar yüklenemedi.");
       setCompanies([]);
     } finally {
       setLoading(false);
@@ -40,10 +57,61 @@ export default function FirmalarPage() {
     fetchCompanies();
   }, [fetchCompanies]);
 
+  useEffect(() => {
+    api.get("/admin/categories")
+      .then((res) => setCategories(getResponseList<Category>(res.data)))
+      .catch(() => setCategories([]));
+  }, []);
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await api.delete(`/api/admin/companies/${deleteTarget.id}`);
+    await api.delete(`/admin/companies/${deleteTarget.id}`);
     setDeleteTarget(null);
+    fetchCompanies();
+  };
+
+  const openCreate = () => {
+    setEditingCompany(null);
+    setForm(emptyForm);
+    setShowForm(true);
+  };
+
+  const openEdit = (company: Company) => {
+    setEditingCompany(company);
+    setForm({
+      ...emptyForm,
+      name: company.name,
+      status: company.status,
+      website: company.website || "",
+      email: company.email || "",
+      phone: company.phone || "",
+      city: company.city || "",
+      description: company.description || "",
+      categoryId: company.categoryId ? String(company.categoryId) : "",
+    });
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const payload = {
+      name: form.name,
+      website: form.website || undefined,
+      email: form.email || undefined,
+      phone: form.phone || undefined,
+      city: form.city || undefined,
+      description: form.description || undefined,
+      status: form.status,
+      categoryId: form.categoryId ? Number(form.categoryId) : undefined,
+    };
+
+    if (editingCompany) {
+      await api.patch(`/admin/companies/${editingCompany.id}`, payload);
+    } else {
+      await api.post("/admin/companies", payload);
+    }
+
+    setShowForm(false);
     fetchCompanies();
   };
 
@@ -51,10 +119,12 @@ export default function FirmalarPage() {
     <AdminLayout>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Firma Yönetimi</h1>
-        <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover">
+        <button onClick={openCreate} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover">
           Firma Ekle
         </button>
       </div>
+
+      {error && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <div className="mt-6 rounded-xl border border-border bg-card-bg overflow-hidden">
         <table className="w-full text-sm">
@@ -85,7 +155,7 @@ export default function FirmalarPage() {
                   <td className="px-4 py-3"><StatusBadge status={company.status} /></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button className="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">Düzenle</button>
+                      <button onClick={() => openEdit(company)} className="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">Düzenle</button>
                       <button onClick={() => setDeleteTarget(company)} className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100">Sil</button>
                     </div>
                   </td>
@@ -106,12 +176,42 @@ export default function FirmalarPage() {
 
       {deleteTarget && (
         <ConfirmDialog
+          open={Boolean(deleteTarget)}
           title="Firma Sil"
           message={`"${deleteTarget.name}" firmasını silmek istediğinize emin misiniz?`}
           onConfirm={handleDelete}
-          onCancel={() => setDeleteTarget(null)}
+          onClose={() => setDeleteTarget(null)}
           variant="danger"
         />
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={handleSubmit} className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">{editingCompany ? "Firma Düzenle" : "Firma Ekle"}</h2>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <input required placeholder="Firma adı" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded border px-3 py-2 text-sm" />
+               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="rounded border px-3 py-2 text-sm">
+                <option value="active">Aktif</option>
+                <option value="pending">Beklemede</option>
+                <option value="hidden">Gizli</option>
+               </select>
+              <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className="rounded border px-3 py-2 text-sm">
+                <option value="">Kategori seç</option>
+                {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              </select>
+              <input placeholder="Website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className="rounded border px-3 py-2 text-sm" />
+              <input placeholder="E-posta" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="rounded border px-3 py-2 text-sm" />
+              <input placeholder="Telefon" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="rounded border px-3 py-2 text-sm" />
+              <input placeholder="Şehir" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="rounded border px-3 py-2 text-sm" />
+              <textarea placeholder="Açıklama" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded border px-3 py-2 text-sm sm:col-span-2" />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="rounded border px-4 py-2 text-sm">İptal</button>
+              <button type="submit" className="rounded bg-primary px-4 py-2 text-sm font-medium text-white">Kaydet</button>
+            </div>
+          </form>
+        </div>
       )}
     </AdminLayout>
   );

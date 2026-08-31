@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 interface CompanyHeaderProps {
   name: string;
@@ -20,6 +21,7 @@ interface CompanyHeaderProps {
 
 export function CompanyHeader({
   name,
+  logoUrl,
   description,
   phone,
   city,
@@ -33,6 +35,7 @@ export function CompanyHeader({
   categoryName,
   categorySlug,
 }: CompanyHeaderProps) {
+  const displayName = name || "Firma";
   const scorePercent = Math.min(memnuniyetScore, 100);
 
   return (
@@ -48,19 +51,25 @@ export function CompanyHeader({
             </>
           )}
           <span className="mx-2">&gt;</span>
-          <span className="text-gray-900">{name}</span>
+          <span className="text-gray-900">{displayName}</span>
         </nav>
 
         <div className="flex flex-col sm:flex-row sm:items-start gap-6">
           {/* Logo */}
-          <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-3xl font-bold text-primary">
-            {name.charAt(0).toUpperCase()}
-          </div>
+          {logoUrl ? (
+            <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-emerald-50">
+              <Image src={logoUrl} alt={displayName} fill className="object-contain p-1" sizes="80px" />
+            </div>
+          ) : (
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-3xl font-bold text-primary">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
 
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold font-[family-name:var(--font-display)] text-gray-900">
-                {name}
+                {displayName}
               </h1>
               {isVerified && (
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-primary">

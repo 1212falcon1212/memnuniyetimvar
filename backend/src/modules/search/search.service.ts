@@ -27,12 +27,22 @@ export interface ReviewSearchDocument {
   status: string;
 }
 
+export interface CategorySearchDocument {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  parentId: number | null;
+  isActive: boolean;
+}
+
 @Injectable()
 export class SearchService implements OnModuleInit {
   private readonly logger = new Logger(SearchService.name);
   private client: MeiliSearch;
   private companiesIndex: Index;
   private reviewsIndex: Index;
+  private categoriesIndex: Index;
 
   constructor(private readonly configService: ConfigService) {
     this.client = new MeiliSearch({
@@ -68,6 +78,14 @@ export class SearchService implements OnModuleInit {
       sortableAttributes: ['rating'],
       rankingRules: ['words', 'typo', 'proximity', 'attribute', 'sort', 'exactness'],
     });
+
+    // Categories index
+    this.categoriesIndex = this.client.index('categories');
+    await this.categoriesIndex.updateSettings({
+      searchableAttributes: ['name', 'description', 'slug'],
+      filterableAttributes: ['isActive', 'parentId'],
+      rankingRules: ['words', 'typo', 'proximity', 'attribute', 'sort', 'exactness'],
+    });
   }
 
   // ── Company index islemleri ────────────────────────────────
@@ -85,6 +103,10 @@ export class SearchService implements OnModuleInit {
     await this.companiesIndex.deleteDocument(id);
   }
 
+  async updateCompany(doc: CompanySearchDocument): Promise<void> {
+    await this.companiesIndex.updateDocuments([doc]);
+  }
+
   // ── Review index islemleri ─────────────────────────────────
 
   async indexReview(doc: ReviewSearchDocument): Promise<void> {
@@ -98,6 +120,29 @@ export class SearchService implements OnModuleInit {
 
   async removeReview(id: string): Promise<void> {
     await this.reviewsIndex.deleteDocument(id);
+  }
+
+  async updateReview(doc: ReviewSearchDocument): Promise<void> {
+    await this.reviewsIndex.updateDocuments([doc]);
+  }
+
+  // ── Category index islemleri ──────────────────────────────
+
+  async indexCategory(doc: CategorySearchDocument): Promise<void> {
+    await this.categoriesIndex.addDocuments([doc]);
+  }
+
+  async indexCategories(docs: CategorySearchDocument[]): Promise<void> {
+    if (docs.length === 0) return;
+    await this.categoriesIndex.addDocuments(docs);
+  }
+
+  async removeCategory(id: number): Promise<void> {
+    await this.categoriesIndex.deleteDocument(id);
+  }
+
+  async updateCategory(doc: CategorySearchDocument): Promise<void> {
+    await this.categoriesIndex.updateDocuments([doc]);
   }
 
   // ── Arama ──────────────────────────────────────────────────
@@ -130,17 +175,44 @@ export class SearchService implements OnModuleInit {
     });
   }
 
+  async searchCategories(query: string, options?: {
+    filter?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    return this.categoriesIndex.search(query, {
+      filter: options?.filter,
+      limit: options?.limit || 20,
+      offset: options?.offset || 0,
+    });
+  }
+
   async searchAll(query: string, limit = 10) {
-    const [companies, reviews] = await Promise.all([
-      this.searchCompanies(query, { limit }),
+    const [companies, reviews, categories] = await Promise.all([
+      this.searchCompanies(query, { limit, filter: 'status = "active"' }),
       this.searchReviews(query, { limit, filter: 'status = "published"' }),
+      this.searchCategories(query, { limit, filter: 'isActive = true' }),
     ]);
 
     return {
       companies: companies.hits,
       reviews: reviews.hits,
+      categories: categories.hits,
       totalCompanies: companies.estimatedTotalHits,
       totalReviews: reviews.estimatedTotalHits,
+      totalCategories: categories.estimatedTotalHits,
+    };
+  }
+
+  async suggest(query: string, limit = 5) {
+    const [companies, categories] = await Promise.all([
+      this.searchCompanies(query, { limit, filter: 'status = "active"' }),
+      this.searchCategories(query, { limit, filter: 'isActive = true' }),
+    ]);
+
+    return {
+      companies: companies.hits.map((h: any) => ({ id: h.id, name: h.name, slug: h.slug, avgRating: h.avgRating, reviewCount: h.reviewCount })),
+      categories: categories.hits.map((h: any) => ({ id: h.id, name: h.name, slug: h.slug })),
     };
   }
 }

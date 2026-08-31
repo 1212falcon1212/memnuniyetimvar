@@ -2,8 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-
-const API_BASE = "http://localhost:4000/api";
+import api from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,19 +17,7 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      const res = await fetch(`${API_BASE}/admin/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        const errData = data?.data || data;
-        throw new Error(errData?.error?.message || errData?.message || "Giris basarisiz. Bilgilerinizi kontrol edin.");
-      }
-
-      const data = await res.json();
+      const { data } = await api.post("/admin/auth/login", { email, password });
       const payload = data.data || data;
       localStorage.setItem("adminToken", payload.accessToken);
       if (payload.admin?.fullName) {
@@ -38,7 +25,8 @@ export default function LoginPage() {
       }
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Bir hata olustu.");
+      const message = err instanceof Error ? err.message : "Bir hata olustu.";
+      setError(message || "Giris basarisiz. Bilgilerinizi kontrol edin.");
     } finally {
       setSubmitting(false);
     }

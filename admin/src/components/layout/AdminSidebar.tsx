@@ -14,7 +14,9 @@ const navItems = [
   { name: "Kullanıcılar", href: "/kullanicilar", icon: "👥" },
   { name: "Kategoriler", href: "/kategoriler", icon: "📁" },
   { name: "Raporlar", href: "/raporlar", icon: "🚩" },
+  { name: "Reklamlar", href: "/reklamlar", icon: "📢" },
   { name: "Sayfalar", href: "/sayfalar", icon: "📄" },
+  { name: "Aktivite Logları", href: "/aktivite-loglari", icon: "🧾" },
 ];
 
 export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

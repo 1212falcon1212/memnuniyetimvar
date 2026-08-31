@@ -43,6 +43,14 @@ export class CompaniesController {
   }
 
   @Public()
+  @Get('stats/global')
+  @ApiOperation({ summary: 'Genel platform istatistikleri' })
+  @ApiResponse({ status: 200, description: 'Platform istatistikleri' })
+  getGlobalStats() {
+    return this.companiesService.getGlobalStats();
+  }
+
+  @Public()
   @Get('search')
   @ApiOperation({ summary: 'Firma ara' })
   @ApiQuery({ name: 'q', required: true, description: 'Arama sorgusu' })
@@ -104,13 +112,17 @@ export class CompaniesController {
   @Get(':slug/reviews')
   @ApiOperation({ summary: 'Firma yorumlari' })
   @ApiParam({ name: 'slug', description: 'Firma slug' })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['newest', 'helpful', 'highest', 'lowest'] })
+  @ApiQuery({ name: 'rating', required: false, description: 'Puan filtresi (1-5)' })
   @ApiResponse({ status: 200, description: 'Firma yorumlari listesi' })
   @ApiResponse({ status: 404, description: 'Firma bulunamadi' })
   findReviews(
     @Param('slug') slug: string,
     @Query() pagination: PaginationDto,
+    @Query('sortBy') sortBy?: string,
+    @Query('rating') rating?: string,
   ) {
-    return this.companiesService.findReviewsByCompany(slug, pagination);
+    return this.companiesService.findReviewsByCompany(slug, pagination, { sortBy, rating });
   }
 
   @Public()

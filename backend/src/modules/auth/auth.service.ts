@@ -4,6 +4,8 @@ import {
   UnauthorizedException,
   ConflictException,
   Logger,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -40,7 +42,7 @@ export class AuthService {
     });
   }
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, deviceInfo?: string) {
     const existingUser = await this.userRepository.findOne({
       where: [{ email: dto.email }, { phone: dto.phone }],
     });
@@ -80,14 +82,14 @@ export class AuthService {
       this.logger.warn(`Hosgeldin emaili gonderilemedi: ${err.message}`);
     });
 
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, deviceInfo);
     return {
       user: this.sanitizeUser(user),
       ...tokens,
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, deviceInfo?: string) {
     const user = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -114,7 +116,7 @@ export class AuthService {
       });
     }
 
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, deviceInfo);
     return {
       user: this.sanitizeUser(user),
       ...tokens,
@@ -129,7 +131,12 @@ export class AuthService {
     return { message: 'Çıkış yapıldı' };
   }
 
-  async refreshTokens(oldRefreshToken: string) {
+  async logoutAll(userId: string) {
+    await this.refreshTokenRepository.delete({ user_id: userId });
+    return { message: 'Tüm cihazlardan çıkış yapıldı' };
+  }
+
+  async refreshTokens(oldRefreshToken: string, deviceInfo?: string) {
     const tokenRecord = await this.refreshTokenRepository.findOne({
       where: { token: oldRefreshToken },
       relations: ['user'],
@@ -154,7 +161,7 @@ export class AuthService {
     }
 
     await this.refreshTokenRepository.delete(tokenRecord.id);
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, deviceInfo || tokenRecord.device_info || undefined);
 
     return {
       user: this.sanitizeUser(user),
@@ -260,6 +267,8 @@ export class AuthService {
   }
 
   async resendPhoneVerification(userId: string) {
+    await this.ensureRateLimit(`resend_phone:${userId}`, 3, 3600, 'Telefon doğrulama kodu çok sık istendi');
+
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new BadRequestException({
@@ -277,6 +286,28 @@ export class AuthService {
 
     await this.sendPhoneVerification(user.id, user.phone);
     return { message: 'Doğrulama kodu tekrar gönderildi' };
+  }
+
+  async resendEmailVerification(userId: string) {
+    await this.ensureRateLimit(`resend_email:${userId}`, 3, 3600, 'E-posta doğrulama kodu çok sık istendi');
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException({
+        code: 'USER_NOT_FOUND',
+        message: 'Kullanıcı bulunamadı',
+      });
+    }
+
+    if (user.is_email_verified) {
+      throw new BadRequestException({
+        code: 'ALREADY_VERIFIED',
+        message: 'E-posta adresi zaten doğrulanmış',
+      });
+    }
+
+    await this.sendEmailVerification(user.id, user.email, user.full_name);
+    return { message: 'E-posta doğrulama kodu tekrar gönderildi' };
   }
 
   private async sendPhoneVerification(userId: string, phone: string): Promise<void> {
@@ -301,7 +332,7 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  private async generateTokens(user: User) {
+  private async generateTokens(user: User, deviceInfo?: string) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -321,6 +352,7 @@ export class AuthService {
       user_id: user.id,
       token: refreshToken,
       expires_at: expiresAt,
+      device_info: deviceInfo ?? null,
     });
     await this.refreshTokenRepository.save(refreshTokenEntity);
 
@@ -343,5 +375,23 @@ export class AuthService {
       reviewCount: user.review_count,
       helpfulCount: user.helpful_count,
     };
+  }
+
+  private async ensureRateLimit(
+    key: string,
+    limit: number,
+    ttlSeconds: number,
+    message: string,
+  ): Promise<void> {
+    const redisKey = `rate_limit:${key}`;
+    const current = await this.redis.incr(redisKey);
+
+    if (current === 1) {
+      await this.redis.expire(redisKey, ttlSeconds);
+    }
+
+    if (current > limit) {
+      throw new HttpException({ code: 'RATE_LIMITED', message }, HttpStatus.TOO_MANY_REQUESTS);
+    }
   }
 }

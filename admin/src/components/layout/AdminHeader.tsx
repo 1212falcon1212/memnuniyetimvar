@@ -3,8 +3,11 @@
 export function AdminHeader({ onMenuToggle }: { onMenuToggle: () => void }) {
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminName");
     window.location.href = "/login";
   };
+
+  const adminName = typeof window !== "undefined" ? localStorage.getItem("adminName") : null;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-header-bg px-4 lg:px-6">
@@ -19,7 +22,7 @@ export function AdminHeader({ onMenuToggle }: { onMenuToggle: () => void }) {
       </button>
       <div className="flex-1" />
       <div className="flex items-center gap-4">
-        <span className="text-sm text-muted">Admin</span>
+        <span className="text-sm text-muted">{adminName || "Admin"}</span>
         <button
           onClick={handleLogout}
           className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:bg-gray-50 transition-colors"

@@ -23,6 +23,15 @@ export enum ReviewStatus {
   ARCHIVED = 'archived',
 }
 
+/**
+ * Yorumun kaynağı. Şeffaflık için doğrulanmış müşteri davetiyle yazılan
+ * yorumlar açıkça işaretlenir.
+ */
+export enum ReviewSource {
+  ORGANIC = 'organic',
+  CAMPAIGN_INVITE = 'campaign_invite',
+}
+
 @Entity('reviews')
 @Index('IDX_reviews_slug', ['slug'], { unique: true })
 @Index('IDX_reviews_status', ['status'])
@@ -79,6 +88,27 @@ export class Review {
 
   @Column({ name: 'published_at', type: 'timestamp', nullable: true })
   publishedAt: Date | null;
+
+  @Column({ name: 'spam_score', type: 'smallint', default: 0 })
+  spamScore: number;
+
+  @Column({ name: 'moderation_note', type: 'text', nullable: true })
+  moderationNote: string | null;
+
+  // ── Doğrulanmış müşteri / kampanya (Faz 8) ──
+  @Column({ name: 'verified_customer', type: 'boolean', default: false })
+  verifiedCustomer: boolean;
+
+  @Column({
+    type: 'enum',
+    enum: ReviewSource,
+    enumName: 'review_source_enum',
+    default: ReviewSource.ORGANIC,
+  })
+  source: ReviewSource;
+
+  @Column({ name: 'invitation_id', type: 'uuid', nullable: true })
+  invitationId: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import api from "@/lib/api";
+import api, { getResponseList } from "@/lib/api";
 
 interface CategoryItem {
   id: number;
@@ -23,13 +23,16 @@ export default function KategorilerPage() {
   const [editForm, setEditForm] = useState({ name: "", slug: "", icon: "", isActive: true, description: "" });
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: "", parentId: "", description: "" });
+  const [error, setError] = useState("");
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
-      const res = await api.get("/api/categories");
-      setCategories(res.data.data || []);
+      const res = await api.get("/categories");
+      setCategories(getResponseList<CategoryItem>(res.data));
     } catch {
+      setError("Kategoriler yüklenemedi.");
       setCategories([]);
     } finally {
       setLoading(false);
@@ -53,13 +56,13 @@ export default function KategorilerPage() {
 
   const handleSave = async () => {
     if (!editingId) return;
-    await api.patch(`/api/admin/categories/${editingId}`, editForm);
+    await api.patch(`/admin/categories/${editingId}`, editForm);
     setEditingId(null);
     fetchCategories();
   };
 
   const handleAdd = async () => {
-    await api.post("/api/admin/categories", {
+    await api.post("/admin/categories", {
       name: newCategory.name,
       parentId: newCategory.parentId ? Number(newCategory.parentId) : null,
       description: newCategory.description || null,
@@ -80,6 +83,8 @@ export default function KategorilerPage() {
           Kategori Ekle
         </button>
       </div>
+
+      {error && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <div className="mt-6 space-y-4">
         {loading ? (

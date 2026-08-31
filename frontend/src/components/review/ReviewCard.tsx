@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatRelativeTime } from "@/lib/utils";
+import { VerifiedCustomerBadge } from "@/components/common/Badges";
 
 interface ReviewCardProps {
   slug: string;
@@ -13,6 +14,7 @@ interface ReviewCardProps {
   companyName: string;
   companySlug: string;
   hasResponse: boolean;
+  verifiedCustomer?: boolean;
   tags?: { name: string; slug: string }[];
 }
 
@@ -27,6 +29,7 @@ export function ReviewCard({
   companyName,
   companySlug,
   hasResponse,
+  verifiedCustomer,
   tags,
 }: ReviewCardProps) {
   const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
@@ -50,12 +53,13 @@ export function ReviewCard({
       </div>
 
       {/* Author & Company */}
-      <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500">
         <span className="font-medium text-gray-700">{userName}</span>
         <span>→</span>
         <Link href={`/firma/${companySlug}`} className="font-medium text-primary hover:underline">
           {companyName}
         </Link>
+        {verifiedCustomer && <VerifiedCustomerBadge />}
       </div>
 
       {/* Content */}

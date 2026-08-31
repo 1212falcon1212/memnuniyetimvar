@@ -8,9 +8,18 @@ export default function GirisPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    const fe: Record<string, string> = {};
+    if (!email.trim()) fe.email = "E-posta gereklidir.";
+    else if (!/\S+@\S+\.\S+/.test(email)) fe.email = "Geçerli bir e-posta girin.";
+    if (!password) fe.password = "Şifre gereklidir.";
+    if (Object.keys(fe).length > 0) { setFieldErrors(fe); return; }
+
     setLoading(true);
     setError("");
 
@@ -68,9 +77,10 @@ export default function GirisPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.email ? "border-red-400" : "border-gray-300"}`}
               placeholder="ornek@email.com"
             />
+            {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
           </div>
 
           <div>
@@ -83,9 +93,10 @@ export default function GirisPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.password ? "border-red-400" : "border-gray-300"}`}
               placeholder="••••••••"
             />
+            {fieldErrors.password && <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>}
           </div>
 
           <div className="flex items-center justify-end">

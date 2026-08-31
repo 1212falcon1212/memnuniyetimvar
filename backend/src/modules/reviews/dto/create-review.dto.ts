@@ -45,4 +45,11 @@ export class CreateReviewDto {
   @ArrayMaxSize(10)
   @IsInt({ each: true })
   tagIds?: number[];
+
+  @ApiPropertyOptional({
+    description: 'Firma davet linki token (doğrulanmış müşteri yorumu için)',
+  })
+  @IsOptional()
+  @IsString()
+  invitationToken?: string;
 }

@@ -23,14 +23,19 @@ import { Request } from 'express';
 
 import { AdminService } from './admin.service';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
+import { AdminRolesGuard } from './guards/admin-roles.guard';
+import { AdminRoles } from './decorators/admin-roles.decorator';
 import { AdminLoginDto } from './dto/admin-login.dto';
-import { AdminUser } from '../users/entities/admin-user.entity';
+import { AdminRole, AdminUser } from '../users/entities/admin-user.entity';
 import { ReviewStatus } from '../reviews/entities/review.entity';
 import { CompanyStatus, Company } from '../companies/entities/company.entity';
 import { ClaimStatus } from '../companies/entities/company-claim.entity';
 import { ReportStatus } from '../reports/entities/report.entity';
 import { UserStatus } from '../users/entities/user.entity';
-import { Category } from '../categories/entities/category.entity';
+import { AdminCreateCategoryDto, AdminUpdateCategoryDto } from './dto/admin-category.dto';
+import { AdminCreateCompanyDto, AdminUpdateCompanyDto } from './dto/admin-company.dto';
+import { AdminCreatePageDto, AdminUpdatePageDto } from './dto/admin-page.dto';
+import { CreateCompanyResponseDto } from '../reviews/dto/create-company-response.dto';
 
 interface AdminRequest extends Request {
   admin: AdminUser;
@@ -59,6 +64,14 @@ export class AdminController {
     return this.adminService.getDashboardStats();
   }
 
+  @Get('activity-logs')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List recent activity logs' })
+  getActivityLogs(@Query('limit') limit?: string) {
+    return this.adminService.getActivityLogs(limit ? parseInt(limit, 10) : 20);
+  }
+
   // ── Reviews ────────────────────────────────────────────────────
 
   @Get('reviews')
@@ -81,7 +94,8 @@ export class AdminController {
   }
 
   @Patch('reviews/:id/approve')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Approve a review' })
   @ApiParam({ name: 'id', type: String })
@@ -93,7 +107,8 @@ export class AdminController {
   }
 
   @Patch('reviews/:id/reject')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Reject a review' })
   @ApiParam({ name: 'id', type: String })
@@ -106,8 +121,23 @@ export class AdminController {
     return this.adminService.rejectReview(id, req.admin.id, reason);
   }
 
+  @Post('reviews/:id/respond')
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Yoruma firma yanıtı ekle' })
+  @ApiParam({ name: 'id', type: String })
+  respondToReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateCompanyResponseDto,
+    @Req() req: AdminRequest,
+  ) {
+    return this.adminService.respondToReview(id, dto, req.admin.id);
+  }
+
   @Patch('reviews/:id/feature')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Toggle review featured status' })
   @ApiParam({ name: 'id', type: String })
@@ -119,7 +149,8 @@ export class AdminController {
   }
 
   @Delete('reviews/:id')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a review' })
   @ApiParam({ name: 'id', type: String })
@@ -152,27 +183,30 @@ export class AdminController {
   }
 
   @Post('companies')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new company' })
-  createCompany(@Body() dto: Partial<Company>) {
+  createCompany(@Body() dto: AdminCreateCompanyDto) {
     return this.adminService.createCompany(dto);
   }
 
   @Patch('companies/:id')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a company' })
   @ApiParam({ name: 'id', type: String })
   updateCompany(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: Partial<Company>,
+    @Body() dto: AdminUpdateCompanyDto,
   ) {
     return this.adminService.updateCompany(id, dto);
   }
 
   @Delete('companies/:id')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a company' })
   @ApiParam({ name: 'id', type: String })
@@ -205,7 +239,8 @@ export class AdminController {
   }
 
   @Patch('companies/claims/:id')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Process a company claim (approve/reject)' })
   @ApiParam({ name: 'id', type: String })
@@ -248,7 +283,8 @@ export class AdminController {
   }
 
   @Patch('users/:id/ban')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Ban a user' })
   @ApiParam({ name: 'id', type: String })
@@ -260,7 +296,8 @@ export class AdminController {
   }
 
   @Patch('users/:id/unban')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Unban a user' })
   @ApiParam({ name: 'id', type: String })
@@ -293,7 +330,8 @@ export class AdminController {
   }
 
   @Patch('reports/:id')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Process a report (reviewed/dismissed)' })
   @ApiParam({ name: 'id', type: String })
@@ -312,6 +350,20 @@ export class AdminController {
     return this.adminService.processReport(id, status, req.admin.id);
   }
 
+  @Patch('reports/:id/:action')
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Process a report by action path' })
+  processReportAction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('action') action: 'review' | 'dismiss',
+    @Req() req: AdminRequest,
+  ) {
+    const status = action === 'review' ? ReportStatus.REVIEWED : ReportStatus.DISMISSED;
+    return this.adminService.processReport(id, status, req.admin.id);
+  }
+
   // ── Categories ─────────────────────────────────────────────────
 
   @Get('categories')
@@ -323,10 +375,49 @@ export class AdminController {
   }
 
   @Post('categories')
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create or update a category' })
-  createOrUpdateCategory(@Body() dto: Partial<Category>) {
-    return this.adminService.createOrUpdateCategory(dto);
+  createCategory(@Body() dto: AdminCreateCategoryDto) {
+    return this.adminService.createCategory(dto);
+  }
+
+  @Patch('categories/:id')
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a category' })
+  updateCategory(
+    @Param('id') id: string,
+    @Body() dto: AdminUpdateCategoryDto,
+  ) {
+    return this.adminService.updateCategory(parseInt(id, 10), dto);
+  }
+
+  @Get('pages')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List static pages' })
+  getPages() {
+    return this.adminService.getPages();
+  }
+
+  @Post('pages')
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create static page' })
+  createPage(@Body() dto: AdminCreatePageDto) {
+    return this.adminService.createPage(dto);
+  }
+
+  @Patch('pages/:id')
+  @UseGuards(AdminAuthGuard, AdminRolesGuard)
+  @AdminRoles(AdminRole.ADMIN, AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update static page' })
+  updatePage(@Param('id') id: string, @Body() dto: AdminUpdatePageDto) {
+    return this.adminService.updatePage(parseInt(id, 10), dto);
   }
 }

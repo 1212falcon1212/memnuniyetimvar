@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bull';
 import {
   databaseConfig,
   redisConfig,
@@ -20,6 +21,9 @@ import { MailModule } from './modules/mail/mail.module';
 import { SmsModule } from './modules/sms/sms.module';
 import { SearchModule } from './modules/search/search.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { ModerationModule } from './modules/moderation/moderation.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AdvertisingModule } from './modules/advertising/advertising.module';
 
 @Module({
   imports: [
@@ -53,6 +57,18 @@ import { UploadModule } from './modules/upload/upload.module';
       },
     ]),
 
+    // BullMQ
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: {
+          host: config.get<string>('redis.host', 'localhost'),
+          port: config.get<number>('redis.port', 6379),
+        },
+      }),
+    }),
+
     // Feature modules
     MailModule,
     SmsModule,
@@ -65,6 +81,9 @@ import { UploadModule } from './modules/upload/upload.module';
     ReviewsModule,
     TagsModule,
     AdminModule,
+    ModerationModule,
+    NotificationsModule,
+    AdvertisingModule,
   ],
 })
 export class AppModule {}

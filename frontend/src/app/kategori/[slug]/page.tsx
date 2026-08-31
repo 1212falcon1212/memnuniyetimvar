@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CompanyCard } from "@/components/company/CompanyCard";
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://memnuniyetimvar.com").replace(/\/$/, "");
+
 interface Props {
   params: Promise<{ slug: string }>;
 }
@@ -30,6 +32,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${name} Firmaları`,
     description: `${name} kategorisindeki en iyi firmaları keşfedin.`,
+    alternates: { canonical: `/kategori/${slug}` },
+    openGraph: {
+      title: `${name} Firmaları — MemnuniyetimVar`,
+      description: `${name} kategorisindeki en iyi firmaları keşfedin.`,
+      url: `${SITE_URL}/kategori/${slug}`,
+      type: "website",
+      images: category?.bannerUrl ? [{ url: category.bannerUrl, alt: name }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} Firmaları`,
+      description: `${name} kategorisindeki en iyi firmaları keşfedin.`,
+    },
   };
 }
 

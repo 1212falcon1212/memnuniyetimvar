@@ -1,14 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bull';
+import type { Queue } from 'bull';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { MAIL_QUEUE, MailJob, SendMailPayload } from './mail-jobs';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectQueue(MAIL_QUEUE) private readonly mailQueue: Queue<SendMailPayload>,
+  ) {
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('mail.host'),
       port: this.configService.get<number>('mail.port'),
@@ -24,17 +30,38 @@ export class MailService {
     return this.configService.get<string>('mail.from', 'noreply@memnuniyetimvar.com');
   }
 
+  /**
+   * E-postayı doğrudan göndermez; BullMQ 'mail' kuyruğuna iş ekler.
+   * Gerçek gönderim MailProcessor.deliver() içinde yapılır.
+   */
   async sendMail(to: string, subject: string, html: string): Promise<void> {
+    await this.mailQueue.add(
+      MailJob.SEND,
+      { to, subject, html },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: true,
+        removeOnFail: 200,
+      },
+    );
+    this.logger.log(`Email kuyruga eklendi: ${to}`);
+  }
+
+  /**
+   * Kuyruk işçisi tarafından çağrılır; SMTP üzerinden gerçek gönderimi yapar.
+   */
+  async deliver(payload: SendMailPayload): Promise<void> {
     try {
       await this.transporter.sendMail({
         from: this.fromAddress,
-        to,
-        subject,
-        html,
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
       });
-      this.logger.log(`Email gonderildi: ${to}`);
+      this.logger.log(`Email gonderildi: ${payload.to}`);
     } catch (error) {
-      this.logger.error(`Email gonderilemedi: ${to}`, error);
+      this.logger.error(`Email gonderilemedi: ${payload.to}`, error);
       throw error;
     }
   }
@@ -101,6 +128,45 @@ export class MailService {
       </div>
     `;
     await this.sendMail(to, subject, html);
+  }
+
+  async sendCompanyResponded(
+    to: string,
+    fullName: string,
+    companyName: string,
+    reviewSlug: string,
+  ): Promise<void> {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const reviewLink = `${frontendUrl}/memnuniyet/${reviewSlug}`;
+    const subject = 'MemnuniyetimVar - Firma Yorumunuza Yanıt Verdi';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #166534;">MemnuniyetimVar</h2>
+        <p>Merhaba ${fullName},</p>
+        <p><strong>${companyName}</strong> firması yorumunuza bir yanıt yazdı.</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <a href="${reviewLink}" style="background: #166534; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; display: inline-block;">
+            Yanıtı Görüntüle
+          </a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #6b7280; font-size: 12px;">MemnuniyetimVar - Türkiye'nin Pozitif Müşteri Deneyimi Platformu</p>
+      </div>
+    `;
+    await this.sendMail(to, subject, html);
+  }
+
+  async sendModeration(to: string, fullName: string, subject: string, message: string): Promise<void> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #166534;">MemnuniyetimVar</h2>
+        <p>Merhaba ${fullName},</p>
+        <p>${message}</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #6b7280; font-size: 12px;">MemnuniyetimVar - Türkiye'nin Pozitif Müşteri Deneyimi Platformu</p>
+      </div>
+    `;
+    await this.sendMail(to, `MemnuniyetimVar - ${subject}`, html);
   }
 
   async sendWelcome(to: string, fullName: string): Promise<void> {

@@ -5,6 +5,8 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://memnuniyetimvar.com";
+
 const playfair = Playfair_Display({
   variable: "--font-display",
   subsets: ["latin"],
@@ -19,6 +21,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "MemnuniyetimVar — Teşekkür için bir neden var!",
     template: "%s | MemnuniyetimVar",
@@ -36,6 +39,15 @@ export const metadata: Metadata = {
     type: "website",
     locale: "tr_TR",
     siteName: "MemnuniyetimVar",
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MemnuniyetimVar — Teşekkür için bir neden var!",
+    description: "Türkiye'nin pozitif müşteri deneyimi platformu.",
+  },
+  alternates: {
+    canonical: "/",
   },
 };
 
